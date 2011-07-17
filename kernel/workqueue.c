@@ -49,6 +49,7 @@
 #include <linux/uaccess.h>
 #include <linux/sched/isolation.h>
 #include <linux/nmi.h>
+#include <linux/locallock.h>
 
 #include "workqueue_internal.h"
 
@@ -349,6 +350,8 @@ struct workqueue_struct *system_power_efficient_wq __read_mostly;
 EXPORT_SYMBOL_GPL(system_power_efficient_wq);
 struct workqueue_struct *system_freezable_power_efficient_wq __read_mostly;
 EXPORT_SYMBOL_GPL(system_freezable_power_efficient_wq);
+
+static DEFINE_LOCAL_IRQ_LOCK(pendingb_lock);
 
 static int worker_thread(void *__worker);
 static void workqueue_sysfs_unregister(struct workqueue_struct *wq);
@@ -1133,9 +1136,11 @@ static void put_pwq_unlocked(struct pool_workqueue *pwq)
 		 * As both pwqs and pools are RCU protected, the
 		 * following lock operations are safe.
 		 */
-		spin_lock_irq(&pwq->pool->lock);
+		rcu_read_lock();
+		local_spin_lock_irq(pendingb_lock, &pwq->pool->lock);
 		put_pwq(pwq);
-		spin_unlock_irq(&pwq->pool->lock);
+		local_spin_unlock_irq(pendingb_lock, &pwq->pool->lock);
+		rcu_read_unlock();
 	}
 }
 
@@ -1239,7 +1244,7 @@ static int try_to_grab_pending(struct work_struct *work, bool is_dwork,
 	struct worker_pool *pool;
 	struct pool_workqueue *pwq;
 
-	local_irq_save(*flags);
+	local_lock_irqsave(pendingb_lock, *flags);
 
 	/* try to steal the timer if it exists */
 	if (is_dwork) {
@@ -1303,7 +1308,7 @@ static int try_to_grab_pending(struct work_struct *work, bool is_dwork,
 	spin_unlock(&pool->lock);
 fail:
 	rcu_read_unlock();
-	local_irq_restore(*flags);
+	local_unlock_irqrestore(pendingb_lock, *flags);
 	if (work_is_canceling(work))
 		return -ENOENT;
 	cpu_relax();
@@ -1408,7 +1413,13 @@ static void __queue_work(int cpu, struct workqueue_struct *wq,
 	 * queued or lose PENDING.  Grabbing PENDING and queueing should
 	 * happen with IRQ disabled.
 	 */
+#ifndef CONFIG_PREEMPT_RT_FULL
+	/*
+	 * nort: On RT the "interrupts-disabled" rule has been replaced with
+	 * pendingb_lock.
+	 */
 	lockdep_assert_irqs_disabled();
+#endif
 
 	debug_work_activate(work);
 
@@ -1516,14 +1527,14 @@ bool queue_work_on(int cpu, struct workqueue_struct *wq,
 	bool ret = false;
 	unsigned long flags;
 
-	local_irq_save(flags);
+	local_lock_irqsave(pendingb_lock,flags);
 
 	if (!test_and_set_bit(WORK_STRUCT_PENDING_BIT, work_data_bits(work))) {
 		__queue_work(cpu, wq, work);
 		ret = true;
 	}
 
-	local_irq_restore(flags);
+	local_unlock_irqrestore(pendingb_lock, flags);
 	return ret;
 }
 EXPORT_SYMBOL(queue_work_on);
@@ -1532,8 +1543,11 @@ void delayed_work_timer_fn(struct timer_list *t)
 {
 	struct delayed_work *dwork = from_timer(dwork, t, timer);
 
+	/* XXX */
+	/* local_lock(pendingb_lock); */
 	/* should have been called from irqsafe timer with irq already off */
 	__queue_work(dwork->cpu, dwork->wq, &dwork->work);
+	/* local_unlock(pendingb_lock); */
 }
 EXPORT_SYMBOL(delayed_work_timer_fn);
 
@@ -1590,14 +1604,14 @@ bool queue_delayed_work_on(int cpu, struct workqueue_struct *wq,
 	unsigned long flags;
 
 	/* read the comment in __queue_work() */
-	local_irq_save(flags);
+	local_lock_irqsave(pendingb_lock, flags);
 
 	if (!test_and_set_bit(WORK_STRUCT_PENDING_BIT, work_data_bits(work))) {
 		__queue_delayed_work(cpu, wq, dwork, delay);
 		ret = true;
 	}
 
-	local_irq_restore(flags);
+	local_unlock_irqrestore(pendingb_lock, flags);
 	return ret;
 }
 EXPORT_SYMBOL(queue_delayed_work_on);
@@ -1632,7 +1646,7 @@ bool mod_delayed_work_on(int cpu, struct workqueue_struct *wq,
 
 	if (likely(ret >= 0)) {
 		__queue_delayed_work(cpu, wq, dwork, delay);
-		local_irq_restore(flags);
+		local_unlock_irqrestore(pendingb_lock, flags);
 	}
 
 	/* -ENOENT from try_to_grab_pending() becomes %true */
@@ -1643,11 +1657,12 @@ EXPORT_SYMBOL_GPL(mod_delayed_work_on);
 static void rcu_work_rcufn(struct rcu_head *rcu)
 {
 	struct rcu_work *rwork = container_of(rcu, struct rcu_work, rcu);
+	unsigned long flags;
 
 	/* read the comment in __queue_work() */
-	local_irq_disable();
+	local_lock_irqsave(pendingb_lock, flags);
 	__queue_work(WORK_CPU_UNBOUND, rwork->wq, &rwork->work);
-	local_irq_enable();
+	local_unlock_irqrestore(pendingb_lock, flags);
 }
 
 /**
@@ -3045,7 +3060,7 @@ static bool __cancel_work_timer(struct work_struct *work, bool is_dwork)
 
 	/* tell other tasks trying to grab @work to back off */
 	mark_work_canceling(work);
-	local_irq_restore(flags);
+	local_unlock_irqrestore(pendingb_lock, flags);
 
 	/*
 	 * This allows canceling during early boot.  We know that @work
@@ -3106,10 +3121,10 @@ EXPORT_SYMBOL_GPL(cancel_work_sync);
  */
 bool flush_delayed_work(struct delayed_work *dwork)
 {
-	local_irq_disable();
+	local_lock_irq(pendingb_lock);
 	if (del_timer_sync(&dwork->timer))
 		__queue_work(dwork->cpu, dwork->wq, &dwork->work);
-	local_irq_enable();
+	local_unlock_irq(pendingb_lock);
 	return flush_work(&dwork->work);
 }
 EXPORT_SYMBOL(flush_delayed_work);
@@ -3147,7 +3162,7 @@ static bool __cancel_work(struct work_struct *work, bool is_dwork)
 		return false;
 
 	set_work_pool_and_clear_pending(work, get_work_pool_id(work));
-	local_irq_restore(flags);
+	local_unlock_irqrestore(pendingb_lock, flags);
 	return ret;
 }
 
