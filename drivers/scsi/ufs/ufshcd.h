@@ -1108,6 +1108,10 @@ struct ufs_hba {
 
 	struct ufs_desc_size desc_size;
 	atomic_t scsi_block_reqs_cnt;
+
+	struct device		bsg_dev;
+	struct request_queue	*bsg_queue;
+	
 	bool restore_needed;
 
 	bool phy_init_g4;
