@@ -155,7 +155,6 @@ void blk_rq_init(struct request_queue *q, struct request *rq)
 #ifdef CONFIG_PREEMPT_RT_FULL
 	INIT_WORK(&rq->work, __blk_mq_complete_request_remote_work);
 #endif
-	rq->cpu = -1;
 	rq->q = q;
 	rq->__sector = (sector_t) -1;
 	INIT_HLIST_NODE(&rq->hash);
@@ -1828,7 +1827,6 @@ EXPORT_SYMBOL_GPL(blk_rq_unprep_clone);
  */
 static void __blk_rq_prep_clone(struct request *dst, struct request *src)
 {
-	dst->cpu = src->cpu;
 	dst->__sector = blk_rq_pos(src);
 	dst->__data_len = blk_rq_bytes(src);
 	if (src->rq_flags & RQF_SPECIAL_PAYLOAD) {
