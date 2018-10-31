@@ -546,8 +546,9 @@ EXPORT_SYMBOL(blk_mq_end_request);
 void __blk_mq_complete_request_remote_work(struct work_struct *work)
 {
 	struct request *rq = container_of(work, struct request, work);
+	struct request_queue *q = rq->q;
 
-	rq->q->softirq_done_fn(rq);
+	q->mq_ops->complete(rq);
 }
 
 #else
@@ -555,14 +556,16 @@ void __blk_mq_complete_request_remote_work(struct work_struct *work)
 static void __blk_mq_complete_request_remote(void *data)
 {
 	struct request *rq = data;
+	struct request_queue *q = rq->q;
 
-	rq->q->softirq_done_fn(rq);
+	q->mq_ops->complete(rq);
 }
 #endif
 
 static void __blk_mq_complete_request(struct request *rq)
 {
 	struct blk_mq_ctx *ctx = rq->mq_ctx;
+	struct request_queue *q = rq->q;
 	bool shared = false;
 	int cpu;
 
@@ -571,13 +574,13 @@ static void __blk_mq_complete_request(struct request *rq)
 	if (rq->internal_tag != -1)
 		blk_mq_sched_completed_request(rq);
 
-	if (!test_bit(QUEUE_FLAG_SAME_COMP, &rq->q->queue_flags)) {
-		rq->q->softirq_done_fn(rq);
+	if (!test_bit(QUEUE_FLAG_SAME_COMP, &q->queue_flags)) {
+		q->mq_ops->complete(rq);
 		return;
 	}
 
 	cpu = get_cpu_light();
-	if (!test_bit(QUEUE_FLAG_SAME_FORCE, &rq->q->queue_flags))
+	if (!test_bit(QUEUE_FLAG_SAME_FORCE, &q->queue_flags))
 		shared = cpus_share_cache(cpu, ctx->cpu);
 
 	if (cpu != ctx->cpu && !shared && cpu_online(ctx->cpu)) {
@@ -594,7 +597,7 @@ static void __blk_mq_complete_request(struct request *rq)
 		smp_call_function_single_async(ctx->cpu, &rq->csd);
 #endif
 	} else {
-		rq->q->softirq_done_fn(rq);
+		q->mq_ops->complete(rq);
 	}
 	put_cpu_light();
 }
@@ -2654,9 +2657,6 @@ struct request_queue *blk_mq_init_allocated_queue(struct blk_mq_tag_set *set,
 	 * Default to classic polling
 	 */
 	q->poll_nsec = -1;
-
-	if (set->ops->complete)
-		blk_queue_softirq_done(q, set->ops->complete);
 
 	blk_mq_init_cpu_queues(q, set->nr_hw_queues);
 	blk_mq_add_queue_tag_set(set, q);
