@@ -329,7 +329,6 @@ static struct request *blk_mq_rq_ctx_init(struct blk_mq_alloc_data *data,
 #ifdef CONFIG_PREEMPT_RT_FULL
 	INIT_WORK(&rq->work, __blk_mq_complete_request_remote_work);
 #endif
-	INIT_LIST_HEAD(&rq->timeout_list);
 	rq->timeout = 0;
 
 	rq->end_io = NULL;

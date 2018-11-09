@@ -110,7 +110,6 @@ void blk_rq_init(struct request_queue *q, struct request *rq)
 	memset(rq, 0, sizeof(*rq));
 
 	INIT_LIST_HEAD(&rq->queuelist);
-	INIT_LIST_HEAD(&rq->timeout_list);
 #ifdef CONFIG_PREEMPT_RT_FULL
 	INIT_WORK(&rq->work, __blk_mq_complete_request_remote_work);
 #endif
