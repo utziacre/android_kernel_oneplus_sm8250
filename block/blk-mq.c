@@ -324,7 +324,7 @@ static struct request *blk_mq_rq_ctx_init(struct blk_mq_alloc_data *data,
 	rq->special = NULL;
 	/* tag was already set */
 	rq->extra_len = 0;
-	rq->__deadline = 0;
+	WRITE_ONCE(rq->deadline, 0);
 
 #ifdef CONFIG_PREEMPT_RT_FULL
 	INIT_WORK(&rq->work, __blk_mq_complete_request_remote_work);
@@ -871,7 +871,7 @@ static bool blk_mq_req_expired(struct request *rq, unsigned long *next)
 	if (rq->rq_flags & RQF_TIMED_OUT)
 		return false;
 
-	deadline = blk_rq_deadline(rq);
+	deadline = READ_ONCE(rq->deadline);
 	if (time_after_eq(jiffies, deadline))
 		return true;
 
