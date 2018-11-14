@@ -146,7 +146,6 @@ do_local:
 	local_irq_restore(flags);
 	preempt_check_resched_rt();
 }
-EXPORT_SYMBOL(__blk_complete_request);
 
 static __init int blk_softirq_init(void)
 {

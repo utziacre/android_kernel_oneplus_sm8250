@@ -29,7 +29,6 @@ void get_io_context(struct io_context *ioc)
 	BUG_ON(atomic_long_read(&ioc->refcount) <= 0);
 	atomic_long_inc(&ioc->refcount);
 }
-EXPORT_SYMBOL(get_io_context);
 
 static void icq_free_icq_rcu(struct rcu_head *head)
 {
@@ -162,7 +161,6 @@ void put_io_context(struct io_context *ioc)
 	if (free_ioc)
 		kmem_cache_free(iocontext_cachep, ioc);
 }
-EXPORT_SYMBOL(put_io_context);
 
 /**
  * put_io_context_active - put active reference on ioc
@@ -323,7 +321,6 @@ struct io_context *get_task_io_context(struct task_struct *task,
 
 	return NULL;
 }
-EXPORT_SYMBOL(get_task_io_context);
 
 /**
  * ioc_lookup_icq - lookup io_cq from ioc
