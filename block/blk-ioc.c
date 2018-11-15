@@ -112,9 +112,9 @@ static void ioc_release_fn(struct work_struct *work)
 						struct io_cq, ioc_node);
 		struct request_queue *q = icq->q;
 
-		if (spin_trylock(q->queue_lock)) {
+		if (spin_trylock(&q->queue_lock)) {
 			ioc_destroy_icq(icq);
-			spin_unlock(q->queue_lock);
+			spin_unlock(&q->queue_lock);
 		} else {
 			spin_unlock_irqrestore(&ioc->lock, flags);
 			cpu_chill();
@@ -241,9 +241,9 @@ void ioc_clear_queue(struct request_queue *q)
 {
 	LIST_HEAD(icq_list);
 
-	spin_lock_irq(q->queue_lock);
+	spin_lock_irq(&q->queue_lock);
 	list_splice_init(&q->icq_list, &icq_list);
-	spin_unlock_irq(q->queue_lock);
+	spin_unlock_irq(&q->queue_lock);
 
 	__ioc_clear_queue(&icq_list);
 }
@@ -334,7 +334,7 @@ struct io_cq *ioc_lookup_icq(struct io_context *ioc, struct request_queue *q)
 {
 	struct io_cq *icq;
 
-	lockdep_assert_held(q->queue_lock);
+	lockdep_assert_held(&q->queue_lock);
 
 	/*
 	 * icq's are indexed from @ioc using radix tree and hint pointer,
@@ -393,7 +393,7 @@ struct io_cq *ioc_create_icq(struct io_context *ioc, struct request_queue *q,
 	INIT_HLIST_NODE(&icq->ioc_node);
 
 	/* lock both q and ioc and try to link @icq */
-	spin_lock_irq(q->queue_lock);
+	spin_lock_irq(&q->queue_lock);
 	spin_lock(&ioc->lock);
 
 	if (likely(!radix_tree_insert(&ioc->icq_tree, q->id, icq))) {
@@ -409,7 +409,7 @@ struct io_cq *ioc_create_icq(struct io_context *ioc, struct request_queue *q,
 	}
 
 	spin_unlock(&ioc->lock);
-	spin_unlock_irq(q->queue_lock);
+	spin_unlock_irq(&q->queue_lock);
 	radix_tree_preload_end();
 	return icq;
 }
