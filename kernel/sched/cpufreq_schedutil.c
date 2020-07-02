@@ -314,8 +314,8 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 	return cpufreq_driver_resolve_freq(policy, freq);
 }
 
-extern long
-schedtune_cpu_margin_with(unsigned long util, int cpu, struct task_struct *p);
+extern long schedtune_cpu_margin_with(unsigned long util, int cpu,
+				      struct task_struct *p);
 
 /*
  * This function computes an effective utilization for the given CPU, to be
@@ -445,13 +445,7 @@ static unsigned long sugov_get_util(struct sugov_cpu *sg_cpu)
 static unsigned long sugov_get_util(struct sugov_cpu *sg_cpu)
 {
 	struct rq *rq = cpu_rq(sg_cpu->cpu);
-
-#ifdef CONFIG_SCHED_TUNE
 	unsigned long util_cfs = cpu_util_cfs(rq);
-#else
-	unsigned long util_cfs = cpu_util_freq(sg_cpu->cpu, NULL)
-				- cpu_util_rt(rq);
-#endif
 	unsigned long max = arch_scale_cpu_capacity(NULL, sg_cpu->cpu);
 
 	sg_cpu->max = max;
