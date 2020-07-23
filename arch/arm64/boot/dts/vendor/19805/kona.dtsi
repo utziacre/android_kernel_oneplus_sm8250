@@ -377,7 +377,7 @@
 					//#ifndef OPLUS_BUG_STABILITY
 					//fsmgr_flags = "wait,slotselect,avb";
 					//#else
-					fsmgr_flags = "wait,avb";
+					fsmgr_flags = "wait";
 					//#endif /* OPLUS_BUG_STABILITY */
 					status = "ok";
 				};
