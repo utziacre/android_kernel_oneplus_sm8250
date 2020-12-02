@@ -76,6 +76,7 @@
 
 		qcom,mdss-dsi-panel-id1-command = [06 01 00 00 00 00 02 0A 00];
 		qcom,mdss-dsi-panel-id1-command-state = "dsi_lp_mode";
+		qcom,ulps-enabled;
 
 		qcom,mdss-dsi-display-timings {
 			timing@0 {
