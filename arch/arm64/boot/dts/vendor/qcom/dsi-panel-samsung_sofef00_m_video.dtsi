@@ -58,6 +58,7 @@
 		qcom,mdss-dsi-panel-hdr-color-primaries = <15635 16450 34000 16000 13250 34500 7500 3000>;
 		qcom,mdss-dsi-panel-average-brightness = <2000000>;
 		qcom,mdss-dsi-panel-blackness-level = <2000>;
+		qcom,ulps-enabled;
 		qcom,mdss-dsi-display-timings {
 			timing@0 {
 				qcom,mdss-dsi-panel-width = <640>;
