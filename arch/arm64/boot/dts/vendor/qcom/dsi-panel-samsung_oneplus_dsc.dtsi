@@ -102,7 +102,7 @@
 		qcom,mdss-dsi-panel-read-register-open-command-state  = "dsi_lp_mode";
 		qcom,mdss-dsi-panel-read-register-close-command-state = "dsi_lp_mode";
 		qcom,mdss-dsi-panel-read-esd-registed-longread-command-state = "dsi_lp_mode";
-
+		qcom,ulps-enabled;
 		/*
 		* ************************************************************************************************************************
 		*  DMS (Dynamic Mode Switch)
