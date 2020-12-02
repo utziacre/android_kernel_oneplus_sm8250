@@ -76,6 +76,7 @@
 		qcom,dynamic-mode-switch-enabled;
 		qcom,dynamic-mode-switch-type = "dynamic-resolution-switch-immediate";
 		qcom,mdss-dsi-panel-clockrate = <830000000>;
+		qcom,ulps-enabled;
 		qcom,mdss-dsi-display-timings {
 		timing@0{
 				qcom,mdss-dsi-panel-jitter = <0x4 0x1>;

@@ -73,7 +73,7 @@
 		qcom,mdss-dsi-panel-seria-num-sec-index = <15>;
 		qcom,mdss-dsi-panel-seria-num-msec-high-index = <16>;
 		qcom,mdss-dsi-panel-seria-num-msec-low-index = <17>;
-
+		qcom,ulps-enabled;
 		qcom,mdss-dsi-display-timings {
 			timing@0 {
 				qcom,mdss-mdp-transfer-time-us = <6130>;
