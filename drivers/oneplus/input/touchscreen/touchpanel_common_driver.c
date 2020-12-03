@@ -5208,6 +5208,7 @@ int register_common_touch_device(struct touchpanel_data *pdata)
 	ts->game_mode_status = 0;
 	ts->glass_mode_status = 0;
 	ts->wet_mode_status = 0;
+	ts->noise_level = 0;
 	if (ts->project_info == 1) {//project 19811
 		ts->dead_zone_l = 25;
 		ts->dead_zone_p = 25;
