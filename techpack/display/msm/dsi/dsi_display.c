@@ -96,6 +96,8 @@ static const struct of_device_id dsi_display_dt_match[] = {
 	{}
 };
 
+static unsigned int cur_refresh_rate = 60;
+
 static void dsi_display_mask_ctrl_error_interrupts(struct dsi_display *display,
 			u32 mask, bool enable)
 {
@@ -2377,6 +2379,11 @@ static int dsi_display_phy_idle_off(struct dsi_display *display)
 	}
 	display->phy_idle_power_off = true;
 	return 0;
+}
+
+unsigned int dsi_panel_get_refresh_rate(void)
+{
+	return READ_ONCE(cur_refresh_rate);
 }
 
 void dsi_display_enable_event(struct drm_connector *connector,
@@ -8171,6 +8178,7 @@ int dsi_display_enable(struct dsi_display *display)
 	}
 #endif
 
+	WRITE_ONCE(cur_refresh_rate, mode->timing.refresh_rate);
 	if (mode->dsi_mode_flags & DSI_MODE_FLAG_DMS) {
 		rc = dsi_panel_post_switch(display->panel);
 		if (rc) {
