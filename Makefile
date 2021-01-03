@@ -688,10 +688,18 @@ KBUILD_CFLAGS   += $(call cc-disable-warning, array-parameter)
 KBUILD_CFLAGS   += $(call cc-disable-warning, constant-logical-operand)
 KBUILD_CFLAGS   += $(call cc-disable-warning, fortify-source)
 
-ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
+ifeq ($(CONFIG_CC_OPTIMIZE_FOR_SIZE), y)
 KBUILD_CFLAGS   += -Os
+KBUILD_AFLAGS   += -Os
+KBUILD_LDFLAGS  += -Os
+else ifeq ($(cc-name),clang)
+KBUILD_CFLAGS   += -O3
+KBUILD_AFLAGS   += -O3
+KBUILD_LDFLAGS  += -O3
 else
 KBUILD_CFLAGS   += -O2
+KBUILD_AFLAGS   += -O2
+KBUILD_LDFLAGS  += -O2
 endif
 
 ifdef CONFIG_CC_WERROR
