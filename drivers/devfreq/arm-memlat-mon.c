@@ -48,6 +48,7 @@ struct event_data {
 	struct perf_event *pevent;
 	unsigned long prev_count;
 	unsigned long last_delta;
+	bool any_cpu_readable;
 };
 
 struct cpu_data {
@@ -165,7 +166,37 @@ static inline void read_event(struct event_data *event)
 	if (!event->pevent)
 		return;
 
-	total = perf_event_read_value(event->pevent, &enabled, &running);
+	if (event->any_cpu_readable) {
+		if (perf_event_read_local(event->pevent, &total, NULL, NULL))
+			return;
+	} else {
+		unsigned int ev_cpu = READ_ONCE(event->pevent->oncpu);
+		bool local_read;
+		int ret;
+
+		if (ev_cpu >= nr_cpu_ids)
+			return;
+
+		local_irq_disable();
+		if ((local_read = (ev_cpu == raw_smp_processor_id())))
+			ret = perf_event_read_local(event->pevent, &total, NULL, NULL);
+		local_irq_enable();
+
+		if (!local_read) {
+			/*
+			 * Some SCM calls take very long (20+ ms), so the perf
+			 * event IPI could lag on the CPU running the SCM call.
+			 */
+			if (under_scm_call(ev_cpu))
+				return;
+
+			total = perf_event_read_value(event->pevent, &enabled,
+						      &running);
+		} else if (ret) {
+			return;
+		}
+	}
+
 	ev_count = total - event->prev_count;
 	event->prev_count = total;
 	event->last_delta = ev_count;
@@ -226,13 +257,6 @@ static unsigned long get_cnt(struct memlat_hwmon *hw)
 	struct memlat_cpu_grp *cpu_grp = mon->cpu_grp;
 	unsigned int cpu;
 
-	/*
-	 * Some of SCM call is very heavy(+20ms) so perf IPI could
-	 * be stuck on the CPU which contributes long latency.
-	 */
-	if (under_scm_call())
-		return 0;
-
 	for_each_cpu(cpu, &mon->cpus) {
 		struct cpu_data *cpu_data = to_cpu_data(cpu_grp, cpu);
 		struct event_data *common_evs = cpu_data->common_evs;
@@ -291,6 +315,7 @@ static struct perf_event_attr *alloc_attr(void)
 static int set_event(struct event_data *ev, int cpu, unsigned int event_id,
 		     struct perf_event_attr *attr)
 {
+	static struct cpumask all_cpu_mask = CPU_MASK_ALL;
 	struct perf_event *pevent;
 
 	if (!event_id)
@@ -303,6 +328,8 @@ static int set_event(struct event_data *ev, int cpu, unsigned int event_id,
 
 	ev->pevent = pevent;
 	perf_event_enable(pevent);
+	ev->any_cpu_readable =
+		cpumask_equal(&pevent->readable_on_cpus, &all_cpu_mask);
 
 	return 0;
 }
