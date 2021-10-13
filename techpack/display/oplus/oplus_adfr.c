@@ -210,20 +210,18 @@ int oplus_get_te_fps(void *data)
 
 /* --------------- msm_drv ---------------*/
 
-int oplus_adfr_thread_create(void *msm_param_ptr,
-	void *msm_priv, void *msm_ddev, void *msm_dev)
+int oplus_adfr_thread_create(void *msm_priv, void *msm_ddev, void *msm_dev)
 {
-	struct sched_param *param;
 	struct msm_drm_private *priv;
 	struct drm_device *ddev;
 	struct device *dev;
 	int i, ret = 0;
 
-	param = msm_param_ptr;
 	priv = msm_priv;
 	ddev = msm_ddev;
 	dev = msm_dev;
 
+	kthread_init_work(&priv->thread_priority_work, msm_drm_display_thread_priority_worker);
 	for (i = 0; i < priv->num_crtcs; i++) {
 		/* initialize adfr thread */
 		priv->adfr_thread[i].crtc_id = priv->crtcs[i]->base.id;
@@ -233,11 +231,7 @@ int oplus_adfr_thread_create(void *msm_param_ptr,
 			kthread_run(kthread_worker_fn,
 				&priv->adfr_thread[i].worker,
 				"adfr:%d", priv->adfr_thread[i].crtc_id);
-		ret = sched_setscheduler(priv->adfr_thread[i].thread,
-							SCHED_FIFO, param);
-		if (ret)
-			pr_warn("kVRR adfr thread priority update failed: %d\n",
-									ret);
+		kthread_queue_work(&priv->adfr_thread[i].worker, &priv->thread_priority_work);
 
 		if (IS_ERR(priv->adfr_thread[i].thread)) {
 			dev_err(dev, "kVRR failed to create adfr_commit kthread\n");

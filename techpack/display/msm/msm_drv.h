@@ -680,6 +680,8 @@ struct msm_drm_private {
 	struct task_struct *pp_event_thread;
 	struct kthread_worker pp_event_worker;
 
+	struct kthread_work thread_priority_work;
+
 	unsigned int num_encoders;
 	struct drm_encoder *encoders[MAX_ENCODERS];
 
@@ -1070,5 +1072,7 @@ static inline unsigned long timeout_to_jiffies(const ktime_t *timeout)
 int msm_get_mixer_count(struct msm_drm_private *priv,
 		const struct drm_display_mode *mode,
 		const struct msm_resource_caps_info *res, u32 *num_lm);
+
+static void msm_drm_display_thread_priority_worker(struct kthread_work *work);
 
 #endif /* __MSM_DRV_H__ */
