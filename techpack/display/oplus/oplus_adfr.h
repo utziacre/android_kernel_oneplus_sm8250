@@ -87,8 +87,7 @@ int oplus_enable_te_refcount(void *data);
 int oplus_get_te_fps(void *data);
 
 /* --------------- msm_drv ---------------*/
-int oplus_adfr_thread_create(void *msm_param,
-	void *msm_priv, void *msm_ddev, void *msm_dev);
+int oplus_adfr_thread_create(void *msm_priv, void *msm_ddev, void *msm_dev);
 void oplus_adfr_thread_destroy(void *msm_priv);
 
 /* ------------ sde_connector ------------ */
