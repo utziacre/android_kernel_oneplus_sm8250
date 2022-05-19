@@ -21,7 +21,19 @@
 #define CAM_RELEASE_DEV                         (CAM_COMMON_OPCODE_BASE + 0x6)
 #define CAM_SD_SHUTDOWN                         (CAM_COMMON_OPCODE_BASE + 0x7)
 #define CAM_FLUSH_REQ                           (CAM_COMMON_OPCODE_BASE + 0x8)
-#define CAM_COMMON_OPCODE_MAX                   (CAM_COMMON_OPCODE_BASE + 0x9)
+
+#define CAM_GET_FUSE_ID                         (CAM_COMMON_OPCODE_BASE + 0x9)
+#define CAM_GET_OIS_GYRO_OFFSET                 (CAM_COMMON_OPCODE_BASE + 0xA)
+#define CAM_GET_OIS_HALL_POSITION               (CAM_COMMON_OPCODE_BASE + 0xB)
+#define CAM_OIS_GYRO_OFFSET_CALIBRATION         (CAM_COMMON_OPCODE_BASE + 0xC)
+#define CAM_GET_OIS_EIS_HALL                    (CAM_COMMON_OPCODE_BASE + 0xD)
+#define CAM_SET_GYRO_POWER_STATUS               (CAM_COMMON_OPCODE_BASE + 0xE)
+#define CAM_GET_GYRO_NOISE                      (CAM_COMMON_OPCODE_BASE + 0xF)
+#define CAM_WRITE_CALIBRATION_DATA              (CAM_COMMON_OPCODE_BASE + 0x10)
+#define CAM_CHECK_CALIBRATION_DATA              (CAM_COMMON_OPCODE_BASE + 0x11)
+#define CAM_WRITE_AE_SYNC_DATA                  (CAM_COMMON_OPCODE_BASE + 0x12)
+#define CAM_GET_GYRO_ENERGY                     (CAM_COMMON_OPCODE_BASE + 0x13)
+#define CAM_COMMON_OPCODE_MAX                   (CAM_COMMON_OPCODE_BASE + 0x14)
 
 #define CAM_COMMON_OPCODE_BASE_v2           0x150
 #define CAM_ACQUIRE_HW                      (CAM_COMMON_OPCODE_BASE_v2 + 0x1)
@@ -96,6 +108,8 @@ struct cam_control {
 #define VIDIOC_CAM_CONTROL \
 	_IOWR('V', BASE_VIDIOC_PRIVATE, struct cam_control)
 
+#define VIDIOC_CAM_FTM_POWNER_UP 0
+#define VIDIOC_CAM_FTM_POWNER_DOWN 1
 /**
  * struct cam_hw_version - Structure for HW version of camera devices
  *
