@@ -4022,10 +4022,13 @@ int cam_req_mgr_link_control(struct cam_req_mgr_link_control *control)
 		if (control->ops == CAM_REQ_MGR_LINK_ACTIVATE) {
 			spin_lock_bh(&link->link_state_spin_lock);
 			link->state = CAM_CRM_LINK_STATE_READY;
+			link->skip_wd_validation = true;
 			spin_unlock_bh(&link->link_state_spin_lock);
+#if 0
 			if (control->init_timeout[i])
 				link->skip_wd_validation = true;
 			init_timeout = (2 * control->init_timeout[i]);
+#endif
 			/* Start SOF watchdog timer */
 			rc = crm_timer_init(&link->watchdog,
 				(init_timeout + CAM_REQ_MGR_WATCHDOG_TIMEOUT),
