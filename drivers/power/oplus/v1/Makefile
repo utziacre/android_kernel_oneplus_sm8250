@@ -271,4 +271,9 @@ obj-y += oplus_chg_voter.o
 obj-y += oplus_chg_core.o
 obj-y += oplus_chg_comm.o
 
+# Undo compiler optimizations to workaround buggy code
+ccflags-remove-y := -O2 -O3 $(CC_FLAGS_LTO)
+
+ccflags-y += -Os
+
 endif # gki_support
