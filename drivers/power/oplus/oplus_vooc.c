@@ -34,13 +34,7 @@
 #define OPLUS_VOOC_BCC_UPDATE_INTERVAL		round_jiffies_relative(msecs_to_jiffies(OPLUS_VOOC_BCC_UPDATE_TIME))
 
 extern int charger_abnormal_log;
-extern int enable_charger_log;
-#define vooc_xlog_printk(num, fmt, ...) \
-	do { \
-		if (enable_charger_log >= (int)num) { \
-			printk(KERN_NOTICE pr_fmt("[OPLUS_CHG][%s]"fmt), __func__, ##__VA_ARGS__);\
-	} \
-} while (0)
+#define vooc_xlog_printk(num, ...) chg_debug(__VA_ARGS__)
 
 
 static struct oplus_vooc_chip *g_vooc_chip = NULL;
