@@ -374,10 +374,10 @@ static inline void getnstimeofday(struct timespec *ts)
 #define OPLUS_PDQC_5VTO9V	1
 #define OPLUS_PDQC_9VTO5V	2
 #define chg_debug(fmt, ...) \
-        printk(KERN_NOTICE "[OPLUS_CHG][%s]"fmt, __func__, ##__VA_ARGS__)
+        printk(KERN_NOTICE "[OPLUS_CHG][%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 
 #define chg_err(fmt, ...) \
-        printk(KERN_ERR "[OPLUS_CHG][%s]"fmt, __func__, ##__VA_ARGS__)
+        printk(KERN_ERR "[OPLUS_CHG][%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 
 enum {
 	PD_INACTIVE = 0,
