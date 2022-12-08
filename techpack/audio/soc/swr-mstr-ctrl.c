@@ -646,7 +646,12 @@ static int swr_master_bulk_write(struct swr_mstr_ctrl *swrm, u32 *reg_addr,
 		 * Reduce sleep from 100us to 50us to meet KPIs
 		 * This still meets the hardware spec
 		 */
+			#ifndef OPLUS_BUG_STABILITY
+			// overflow/underflow causing headset det issues
+			usleep_range(10, 12);
+			#else
 			usleep_range(50, 55);
+			#endif /* OPLUS_BUG_STABILITY */
 			if (reg_addr[i] == SWRM_CMD_FIFO_WR_CMD)
 				swrm_wait_for_fifo_avail(swrm,
 							 SWRM_WR_CHECK_AVAIL);
@@ -828,11 +833,6 @@ static int swrm_cmd_fifo_rd_cmd(struct swr_mstr_ctrl *swrm, int *cmd_data,
 	u32 val;
 	u32 retry_attempt = 0;
 
-	if (!dev_addr) {
-		dev_err(swrm->dev, "%s: invalid slave dev num\n", __func__);
-		return -EINVAL;
-	}
-
 	mutex_lock(&swrm->iolock);
 	val = swrm_get_packed_reg_val(&swrm->rcmd_id, len, dev_addr, reg_addr);
 	if (swrm->read) {
@@ -862,6 +862,7 @@ retry_read:
 			/* wait 500 us before retry on fifo read failure */
 			usleep_range(500, 505);
 			if (retry_attempt == (MAX_FIFO_RD_FAIL_RETRY - 1)) {
+				swr_master_write(swrm, SWRM_CMD_FIFO_CMD, 0x1);
 				swr_master_write(swrm, SWRM_CMD_FIFO_RD_CMD, val);
 			}
 			retry_attempt++;
@@ -886,11 +887,6 @@ static int swrm_cmd_fifo_wr_cmd(struct swr_mstr_ctrl *swrm, u8 cmd_data,
 {
 	u32 val;
 	int ret = 0;
-
-	if (!dev_addr) {
-		dev_err(swrm->dev, "%s: invalid slave dev num\n", __func__);
-		return -EINVAL;
-	}
 
 	mutex_lock(&swrm->iolock);
 	if (!cmd_id)
@@ -1787,6 +1783,11 @@ static void swrm_enable_slave_irq(struct swr_mstr_ctrl *swrm)
 	}
 	dev_dbg(swrm->dev, "%s: slave status: 0x%x\n", __func__, status);
 	for (i = 0; i < (swrm->master.num_dev + 1); i++) {
+		#ifndef OPLUS_BUG_STABILITY
+		if (status & SWRM_MCP_SLV_STATUS_MASK)
+			swrm_cmd_fifo_wr_cmd(swrm, 0x4, i, 0x0,
+						SWRS_SCP_INT_STATUS_MASK_1);
+		#else /* OPLUS_BUG_STABILITY */
 		if (status & SWRM_MCP_SLV_STATUS_MASK) {
 			if (!swrm->clk_stop_wakeup) {
 				swrm_cmd_fifo_rd_cmd(swrm, &temp, i, 0x0,
@@ -1797,6 +1798,7 @@ static void swrm_enable_slave_irq(struct swr_mstr_ctrl *swrm)
 			swrm_cmd_fifo_wr_cmd(swrm, 0x4, i, 0x0,
 					SWRS_SCP_INT_STATUS_MASK_1);
 		}
+		#endif /* OPLUS_BUG_STABILITY */
 		status >>= 2;
 	}
 }
@@ -2151,6 +2153,7 @@ handle_irq:
 			dev_err(swrm->dev,
 				"%s: SWR write FIFO overflow fifo status %x\n",
 				__func__, value);
+			swr_master_write(swrm, SWRM_CMD_FIFO_CMD, 0x1);
 			break;
 		case SWRM_INTERRUPT_STATUS_CMD_ERROR:
 			value = swr_master_read(swrm, SWRM_CMD_FIFO_STATUS);
@@ -2892,10 +2895,6 @@ static int swrm_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev,
 			 "%s: version specified in dtsi: 0x%x not match with HW read version 0x%x\n",
 			 __func__, swrm->version, swrm_hw_ver);
-	swrm->rd_fifo_depth = ((swr_master_read(swrm, SWRM_COMP_PARAMS)
-				& SWRM_COMP_PARAMS_RD_FIFO_DEPTH) >> 15);
-	swrm->wr_fifo_depth = ((swr_master_read(swrm, SWRM_COMP_PARAMS)
-				& SWRM_COMP_PARAMS_WR_FIFO_DEPTH) >> 10);
 	ret = swrm_master_init(swrm);
 	if (ret < 0) {
 		dev_err(&pdev->dev,
@@ -2911,6 +2910,11 @@ static int swrm_probe(struct platform_device *pdev)
 
 	if (pdev->dev.of_node)
 		of_register_swr_devices(&swrm->master);
+
+	swrm->rd_fifo_depth = ((swr_master_read(swrm, SWRM_COMP_PARAMS)
+				& SWRM_COMP_PARAMS_RD_FIFO_DEPTH) >> 15);
+	swrm->wr_fifo_depth = ((swr_master_read(swrm, SWRM_COMP_PARAMS)
+				& SWRM_COMP_PARAMS_WR_FIFO_DEPTH) >> 10);
 
 #ifdef CONFIG_DEBUG_FS
 	swrm->debugfs_swrm_dent = debugfs_create_dir(dev_name(&pdev->dev), 0);
@@ -3038,6 +3042,9 @@ static int swrm_runtime_resume(struct device *dev)
 	bool aud_core_err = false;
 	struct swr_master *mstr = &swrm->master;
 	struct swr_device *swr_dev;
+	#ifdef OPLUS_BUG_STABILITY
+	u32 temp = 0;
+	#endif /* OPLUS_BUG_STABILITY */
 
 	dev_dbg(dev, "%s: pm_runtime: resume, state:%d\n",
 		__func__, swrm->state);
@@ -3055,7 +3062,6 @@ static int swrm_runtime_resume(struct device *dev)
 			__func__);
 		aud_core_err = true;
 	}
-
 	if ((swrm->state == SWR_MSTR_DOWN) ||
 	    (swrm->state == SWR_MSTR_SSR && swrm->dev_up)) {
 		if (swrm->clk_stop_mode0_supp) {
@@ -3121,6 +3127,13 @@ static int swrm_runtime_resume(struct device *dev)
 				mutex_lock(&swrm->reslock);
 			}
 		} else {
+			#ifdef OPLUS_BUG_STABILITY
+			if (swrm->swrm_hctl_reg) {
+				temp = ioread32(swrm->swrm_hctl_reg);
+				temp &= 0xFFFFFFFD;
+				iowrite32(temp, swrm->swrm_hctl_reg);
+			}
+			#endif /* OPLUS_BUG_STABILITY */
 			/*wake up from clock stop*/
 			swr_master_write(swrm, SWRM_MCP_BUS_CTRL_ADDR, 0x2);
 			/* clear and enable bus clash interrupt */
@@ -3168,16 +3181,17 @@ static int swrm_runtime_suspend(struct device *dev)
 	struct swr_master *mstr = &swrm->master;
 	struct swr_device *swr_dev;
 	int current_state = 0;
-	struct irq_data *irq_data = NULL;
 
 	trace_printk("%s: pm_runtime: suspend state: %d\n",
 		__func__, swrm->state);
 	dev_dbg(dev, "%s: pm_runtime: suspend state: %d\n",
 		__func__, swrm->state);
+	#ifdef OPLUS_BUG_STABILITY
 	if (swrm->state == SWR_MSTR_SSR_RESET) {
 		swrm->state = SWR_MSTR_SSR;
 		return 0;
 	}
+	#endif /* OPLUS_BUG_STABILITY */
 	mutex_lock(&swrm->reslock);
 	mutex_lock(&swrm->force_down_lock);
 	current_state = swrm->state;
@@ -3193,7 +3207,6 @@ static int swrm_runtime_suspend(struct device *dev)
 			__func__);
 		aud_core_err = true;
 	}
-
 	if ((current_state == SWR_MSTR_UP) ||
 	    (current_state == SWR_MSTR_SSR)) {
 
@@ -3277,16 +3290,13 @@ static int swrm_runtime_suspend(struct device *dev)
 
 		if (swrm->clk_stop_mode0_supp) {
 			if (swrm->wake_irq > 0) {
-				irq_data = irq_get_irq_data(swrm->wake_irq);
-				if (irq_data && irqd_irq_disabled(irq_data))
-					enable_irq(swrm->wake_irq);
+				enable_irq(swrm->wake_irq);
 			} else if (swrm->ipc_wakeup) {
 				msm_aud_evt_blocking_notifier_call_chain(
 					SWR_WAKE_IRQ_REGISTER, (void *)swrm);
 				swrm->ipc_wakeup_triggered = false;
 			}
 		}
-
 	}
 	/* Retain  SSR state until resume */
 	if (current_state != SWR_MSTR_SSR)
@@ -3533,7 +3543,6 @@ int swrm_wcd_notify(struct platform_device *pdev, u32 id, void *data)
 						   msecs_to_jiffies(500)))
 			dev_err(swrm->dev, "%s: clock voting not zero\n",
 				__func__);
-
 		if (swrm->state == SWR_MSTR_UP ||
 			pm_runtime_autosuspend_expiration(swrm->dev)) {
 			swrm->state = SWR_MSTR_SSR_RESET;
@@ -3545,7 +3554,6 @@ int swrm_wcd_notify(struct platform_device *pdev, u32 id, void *data)
 			usleep_range(50000, 50100);
 			swrm->state = SWR_MSTR_SSR;
 		}
-
 		mutex_lock(&swrm->devlock);
 		swrm->dev_up = true;
 		mutex_unlock(&swrm->devlock);
