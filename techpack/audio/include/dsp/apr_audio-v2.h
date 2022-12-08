@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 
@@ -894,6 +894,31 @@ struct audproc_volume_ctrl_master_gain {
 	/* Clients must set this field to zero. */
 	uint16_t                  reserved;
 } __packed;
+
+#ifdef OPLUS_FEATURE_KTV
+struct audproc_revert_param {
+	int32_t mode;
+	int32_t volume;
+	int32_t peg;
+	int32_t pitchange;
+	int32_t reverbparam;
+	int32_t enabled;
+	int32_t reverved0;
+	int32_t reverved1;
+	int32_t reverved2;
+	int32_t reverved3;
+	int32_t reverved4;
+	int32_t reverved5;
+	int32_t reverved6;
+	int32_t reverved7;
+	int32_t reverved8;
+	int32_t reverved9;
+	int32_t reverved10;
+	int32_t reverved11;
+	int32_t reverved12;
+	int32_t reverved13;
+} __packed;
+#endif /* OPLUS_FEATURE_KTV */
 
 struct audproc_soft_step_volume_params {
 /*
@@ -3965,7 +3990,6 @@ struct afe_param_id_device_hw_delay_cfg {
 } __packed;
 
 #define AFE_PARAM_ID_SET_TOPOLOGY    0x0001025A
-#define AFE_PARAM_ID_DEREGISTER_TOPOLOGY	0x000102E8
 #define AFE_API_VERSION_TOPOLOGY_V1 0x1
 
 struct afe_param_id_set_topology_cfg {
@@ -11124,6 +11148,38 @@ struct afe_spkr_prot_calib_get_resp {
 	struct asm_calib_res_cfg res_cfg;
 } __packed;
 
+#ifdef OPLUS_ARCH_EXTENDS
+#ifdef CONFIG_SND_SOC_MAX98937
+/*Maxim DSM module and parameters IDs*/
+#define AFE_RX_TOPOLOGY_ID_DSM                              0x10001061
+#define AFE_TX_TOPOLOGY_ID_DSM                              0x10001060
+#define AFE_MODULE_DSM_TX                                   0x10001068
+#define AFE_MODULE_DSM_RX                                   0x10001062
+#define AFE_PARAM_ID_DSM_ENABLE                             0x10001063
+#define AFE_PARAM_ID_CALIB                                  0x10001065
+#define AFE_PARAM_ID_DSM_CFG                                0x10001066
+#define AFE_PARAM_ID_DSM_INFO                               0x10001067
+#define AFE_PARAM_ID_DSM_STAT                               0x10001069
+
+#define DSM_RX_PORT_ID      AFE_PORT_ID_TERTIARY_MI2S_RX
+#define DSM_TX_PORT_ID      AFE_PORT_ID_TERTIARY_MI2S_TX
+
+struct afe_dsm_param_array {
+    uint32_t    data[112];
+} __packed;
+struct afe_dsm_get_param {
+	struct param_hdr_v3 pdata;
+    struct afe_dsm_param_array param;
+} __packed;
+
+struct afe_dsm_get_resp {
+	uint32_t status;
+	struct param_hdr_v3 pdata;
+	struct afe_dsm_param_array param;
+} __packed;
+
+#endif
+#endif /* OPLUS_ARCH_EXTENDS */
 
 #define AFE_MODULE_SPEAKER_PROTECTION_V4_RX       0x000102C7
 #define AFE_PARAM_ID_SP_V4_OP_MODE                0x000102C9
@@ -12167,27 +12223,6 @@ struct afe_clk_set {
 	uint32_t enable;
 };
 
-#define AVS_BUILD_MAJOR_VERSION_V2		2
-#define AVS_BUILD_MINOR_VERSION_V9		9
-#define AVS_BUILD_BRANCH_VERSION_V3		3
-
-#define AFE_PARAM_ID_CLOCK_SET_V2		0x000102E6
-
-#define AFE_API_VERSION_CLOCK_SET_V2		0x1
-
-struct afe_param_id_clock_set_v2_t {
-	uint32_t	clk_set_minor_version;
-	uint32_t	clk_id;
-	uint32_t	clk_freq_in_hz;
-	uint16_t	clk_attri;
-	uint16_t	clk_root;
-	uint32_t	enable;
-	uint32_t	divider_2x;
-	uint32_t	m;
-	uint32_t	n;
-	uint32_t	d;
-};
-
 struct afe_clk_cfg {
 /* Minor version used for tracking the version of the I2S
  * configuration interface.
@@ -12228,15 +12263,16 @@ struct afe_clk_cfg {
 #define AFE_MODULE_CLOCK_SET		0x0001028F
 #define AFE_PARAM_ID_CLOCK_SET		0x00010290
 
-#define CLK_SRC_NAME_MAX 32
-
-enum {
-	CLK_SRC_INTEGRAL,
-	CLK_SRC_FRACT,
-	CLK_SRC_MAX
-};
-
 struct afe_set_clk_drift {
+	/*
+	 * Clock ID
+	 *	@values
+	 *	- 0x100 to 0x10E
+	 *	- 0x200 to 0x20C
+	 *	- 0x500 to 0x505
+	 */
+	uint32_t clk_id;
+
 	/*
 	 * Clock drift  (in PPB) to be set.
 	 *	@values
@@ -12245,20 +12281,12 @@ struct afe_set_clk_drift {
 	int32_t clk_drift;
 
 	/*
-	 * Clock reset.
+	 * Clock rest.
 	 *	@values
 	 *	- 1 -- Reset PLL with the original frequency
 	 *	- 0 -- Adjust the clock with the clk drift value
 	 */
 	uint32_t clk_reset;
-	/*
-	 * Clock src name.
-	 *  @values
-	 *  - values to be set from machine driver
-	 *  - LPAPLL0 -- integral clk src
-	 *  - LPAPLL2 -- fractional clk src
-	 */
-	char clk_src_name[CLK_SRC_NAME_MAX];
 } __packed;
 
 /* This param id is used to adjust audio interface PLL*/
