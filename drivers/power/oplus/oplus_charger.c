@@ -592,7 +592,7 @@ int oplus_battery_set_property(struct power_supply *psy,
 }
 EXPORT_SYMBOL(oplus_battery_set_property);
 
-#define OPLUS_MIDAS_CHG_DEBUG 1
+//#define OPLUS_MIDAS_CHG_DEBUG 1
 #ifdef OPLUS_MIDAS_CHG_DEBUG
 #define	midas_debug(fmt, args...)	\
 	pr_notice("[OPLUS_MIDAS_CHG_DEBUG]" fmt, ##args)
