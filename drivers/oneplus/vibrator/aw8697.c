@@ -29,10 +29,10 @@
 #include "aw8697.h"
 #include "aw8697_reg.h"
 #include "aw8697_config.h"
-#include <linux/oem/boot_mode.h>
+//#include <linux/oem/boot_mode.h>
 #include <linux/pm_qos.h>
 
-#include <linux/msm_drm_notify.h>
+//#include <linux/msm_drm_notify.h>
 #include <linux/fb.h>
 #include <linux/vmalloc.h>
 
@@ -297,7 +297,7 @@ struct aw8697_container *aw8697_rtp;
 struct aw8697 *g_aw8697;
 static int aw8697_haptic_get_f0(struct aw8697 *aw8697);
 static bool check_factory_mode(void);
-extern void msm_cpuidle_set_sleep_disable(bool disable);
+//extern void msm_cpuidle_set_sleep_disable(bool disable);
 
 /******************************************************
  *
@@ -1392,7 +1392,7 @@ static int aw8697_haptic_rtp_init(struct aw8697 *aw8697)
     unsigned char reg_val = 0;
 
     pr_info("%s enter\n", __func__);
-    msm_cpuidle_set_sleep_disable(true);
+    //msm_cpuidle_set_sleep_disable(true);
     aw8697->rtp_cnt = 0;
 
     mutex_lock(&aw8697->rtp_lock);
@@ -1422,7 +1422,7 @@ static int aw8697_haptic_rtp_init(struct aw8697 *aw8697)
             aw8697->rtp_cnt = 0;
             aw8697->rtp_is_playing = 0;
             mutex_unlock(&aw8697->rtp_lock);
-            msm_cpuidle_set_sleep_disable(false);
+            //msm_cpuidle_set_sleep_disable(false);
             return 0;
         }
     }
@@ -1433,7 +1433,7 @@ static int aw8697_haptic_rtp_init(struct aw8697 *aw8697)
     }
 
     pr_info("%s exit\n", __func__);
-    msm_cpuidle_set_sleep_disable(false);
+    //msm_cpuidle_set_sleep_disable(false);
     return 0;
 }
 static void aw8697_haptic_upload_lra(struct aw8697 *aw8697, unsigned int flag)
@@ -1944,6 +1944,7 @@ static int aw8697_haptic_audio_ctr_list_clear(struct haptic_audio *haptic_audio)
 	return 0;
 }
 
+#if 0
 static int aw8697_fb_notifier_callback_tp(struct notifier_block *self, unsigned long event, void *data)
 {
 	struct aw8697 *aw8697 = container_of(self, struct aw8697, fb_notif);
@@ -2020,6 +2021,7 @@ static int aw8697_fb_notifier_callback_tp(struct notifier_block *self, unsigned 
 
 	return 0;
 }
+#endif
 
 #ifdef OP_AW_DEBUG
 static int aw8697_haptic_audio_init(struct aw8697 *aw8697)
@@ -3142,6 +3144,7 @@ static struct miscdevice aw8697_haptic_misc =
 
 static bool check_factory_mode(void)
 {
+#if 0
 	int boot_mode = get_boot_mode();
 
 	if (boot_mode == MSM_BOOT_MODE_RF
@@ -3149,6 +3152,8 @@ static bool check_factory_mode(void)
 		return true;
 	else
 		return false;
+#endif
+	return false;
 }
 
 static int aw8697_haptic_init(struct aw8697 *aw8697)
@@ -5739,7 +5744,7 @@ static irqreturn_t aw8697_irq(int irq, void *data)
     unsigned int buf_len = 0;
 
     pr_debug("%s enter\n", __func__);
-    msm_cpuidle_set_sleep_disable(true);
+    //msm_cpuidle_set_sleep_disable(true);
 
     aw8697_i2c_read(aw8697, AW8697_REG_SYSINT, &reg_val);
     pr_debug("%s: reg SYSINT=0x%x\n", __func__, reg_val);
@@ -5818,7 +5823,7 @@ static irqreturn_t aw8697_irq(int irq, void *data)
     pr_debug("%s: reg SYSINT=0x%x\n", __func__, reg_val);
     aw8697_i2c_read(aw8697, AW8697_REG_SYSST, &reg_val);
     pr_debug("%s: reg SYSST=0x%x\n", __func__, reg_val);
-    msm_cpuidle_set_sleep_disable(false);
+    //msm_cpuidle_set_sleep_disable(false);
 
     pr_debug("%s exit\n", __func__);
 
@@ -6131,12 +6136,14 @@ static int aw8697_i2c_probe(struct i2c_client *i2c, const struct i2c_device_id *
 
     aw8697_ram_init(aw8697);
 
+#if 0
 /* add haptic audio tp mask */
     aw8697->fb_notif.notifier_call = aw8697_fb_notifier_callback_tp;
     ret = msm_drm_register_client(&aw8697->fb_notif);
     if (ret)
        pr_info("Unable to register fb_notifier: %d\n", ret);
 /* add haptic audio tp mask end */
+#endif
     pr_info("%s probe completed successfully!\n", __func__);
 
     return 0;
