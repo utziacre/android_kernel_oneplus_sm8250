@@ -422,7 +422,7 @@ void CntWrt(  void *register_data, uint16_t size)
 
 	for(i = 0; i < retry; i++) {
 		rc = camera_io_dev_write_continuous(&(o_ctrl->io_master_info),
-		                                    &i2c_write, 1);
+		                                    &i2c_write, 1, false);
 		if (rc < 0) {
 			CAM_ERR(CAM_OIS, "ois type=%d,Continue write failed, rc:%d, retry:%d",o_ctrl->ois_type, rc, i+1);
 		} else {
@@ -460,7 +460,7 @@ int RamWrite32A(    uint32_t addr, uint32_t data)
 	}
 
 	for(i = 0; i < retry; i++) {
-		rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_write);
+		rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_write, false);
 		if (rc < 0) {
 			CAM_ERR(CAM_OIS, "ois type=%d,write 0x%04x failed, retry:%d",o_ctrl->ois_type, addr, i+1);
 		} else {
@@ -520,7 +520,7 @@ int RamWrite32A_oneplus(struct cam_ois_ctrl_t *o_ctrl, uint32_t addr, uint32_t d
 	}
 
 	for(i = 0; i < retry; i++) {
-		rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_write);
+		rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_write, false);
 		if (rc < 0) {
 			CAM_ERR(CAM_OIS, "ois type=%d,write 0x%04x failed, retry:%d",o_ctrl->ois_type, addr, i+1);
 		} else {
@@ -620,7 +620,7 @@ void OISCountinueWrite(  struct cam_ois_ctrl_t *o_ctrl, void *register_data, uin
 
 	for(i = 0; i < retry; i++) {
 		rc = camera_io_dev_write_continuous(&(o_ctrl->io_master_info),
-		                                    &i2c_write, 1);
+		                                    &i2c_write, 1, false);
 		if (rc < 0) {
 			CAM_ERR(CAM_OIS, "ois type=%d,Continue write failed, rc:%d, retry:%d",o_ctrl->ois_type, rc, i+1);
 		} else {
@@ -656,7 +656,7 @@ int OISWrite(struct cam_ois_ctrl_t *o_ctrl, uint32_t addr, uint32_t data)
 	}
 
 	for(i = 0; i < retry; i++) {
-		rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_write);
+		rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_write, false);
 		if (rc < 0) {
 			CAM_ERR(CAM_OIS, "ois type=%d,write 0x%04x failed, retry:%d",o_ctrl->ois_type, addr, i+1);
 		} else {
