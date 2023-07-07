@@ -47,6 +47,8 @@
 #include "debug.h"
 #include "xhci.h"
 
+#include "../pd/usbpd.h"
+
 static bool bc12_compliance;
 module_param(bc12_compliance, bool, 0644);
 MODULE_PARM_DESC(bc12_compliance, "Disable sending dp pulse for CDP");
@@ -76,6 +78,7 @@ MODULE_PARM_DESC(bc12_compliance, "Disable sending dp pulse for CDP");
 #define CGCTL_REG		(QSCRATCH_REG_OFFSET + 0x28)
 #define PWR_EVNT_IRQ_STAT_REG    (QSCRATCH_REG_OFFSET + 0x58)
 #define PWR_EVNT_IRQ_MASK_REG    (QSCRATCH_REG_OFFSET + 0x5C)
+#define QSCRATCH_USB30_STS_REG	(QSCRATCH_REG_OFFSET + 0xF8)
 
 #define PWR_EVNT_POWERDOWN_IN_P3_MASK		BIT(2)
 #define PWR_EVNT_POWERDOWN_OUT_P3_MASK		BIT(3)
@@ -123,6 +126,8 @@ MODULE_PARM_DESC(bc12_compliance, "Disable sending dp pulse for CDP");
 #define DWC3_GEVNTADRHI_EVNTADRHI_GSI_EN(n)	(n << 22)
 #define DWC3_GEVNTADRHI_EVNTADRHI_GSI_IDX(n)	(n << 16)
 #define DWC3_GEVENT_TYPE_GSI			0x3
+
+struct dwc3_msm *g_mdwc;
 
 enum usb_gsi_reg {
 	GENERAL_CFG_REG,
@@ -363,6 +368,7 @@ struct dwc3_msm {
 	u64			dummy_gsi_db;
 	dma_addr_t		dummy_gsi_db_dma;
 	int			orientation_override;
+	bool		awake_status;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -2288,6 +2294,7 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 
 static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
 {
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	unsigned long timeout;
 	u32 reg = 0;
 
@@ -2315,8 +2322,19 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
 		if (reg & PWR_EVNT_LPM_IN_L2_MASK)
 			break;
 	}
-	if (!(reg & PWR_EVNT_LPM_IN_L2_MASK))
-		dev_err(mdwc->dev, "could not transition HS PHY to L2\n");
+	if (!(reg & PWR_EVNT_LPM_IN_L2_MASK)) {
+		dbg_event(0xFF, "PWR_EVNT_LPM",
+			dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG));
+		dbg_event(0xFF, "QUSB_STS",
+			dwc3_msm_read_reg(mdwc->base, QSCRATCH_USB30_STS_REG));
+		/* Mark fatal error for host mode or USB bus suspend case */
+		if (mdwc->in_host_mode || (mdwc->vbus_active
+			&& mdwc->drd_state == DRD_STATE_PERIPHERAL_SUSPEND)) {
+			queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
+			dev_err(mdwc->dev, "could not transition HS PHY to L2\n");
+			return -EBUSY;
+		}
+	}
 
 	/* Clear L2 event bit */
 	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG,
@@ -2684,6 +2702,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool enable_wakeup)
 		pm_wakeup_event(mdwc->dev, mdwc->lpm_to_suspend_delay);
 	} else {
 		pm_relax(mdwc->dev);
+		g_mdwc->awake_status = false;
 	}
 
 	atomic_set(&dwc->in_lpm, 1);
@@ -2747,6 +2766,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	}
 
 	pm_stay_awake(mdwc->dev);
+	g_mdwc->awake_status = true;
 
 	if (mdwc->in_host_mode && mdwc->max_rh_port_speed == USB_SPEED_HIGH)
 		dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_SVS);
@@ -3176,7 +3196,6 @@ static irqreturn_t msm_dwc3_pwr_irq(int irq, void *data)
 }
 
 static void dwc3_otg_sm_work(struct work_struct *w);
-static int get_psy_type(struct dwc3_msm *mdwc);
 
 static int dwc3_msm_get_clk_gdsc(struct dwc3_msm *mdwc)
 {
@@ -3343,8 +3362,6 @@ static void check_for_sdp_connection(struct work_struct *w)
 	}
 }
 
-#define DP_PULSE_WIDTH_MSEC 200
-
 static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 	unsigned long event, void *ptr)
 {
@@ -3376,17 +3393,6 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 		if (mdwc->vbus_active == event)
 			return NOTIFY_DONE;
 		mdwc->vbus_active = event;
-	}
-
-	/*
-	 * Drive a pulse on DP to ensure proper CDP detection
-	 * and only when the vbus connect event is a valid one.
-	 */
-	if (get_psy_type(mdwc) == POWER_SUPPLY_TYPE_USB_CDP &&
-			mdwc->vbus_active &&
-				!mdwc->check_eud_state && !bc12_compliance) {
-		dev_dbg(mdwc->dev, "Connected to CDP, pull DP up\n");
-		usb_phy_drive_dp_pulse(mdwc->hs_phy, DP_PULSE_WIDTH_MSEC);
 	}
 
 	if (dwc3_is_otg_or_drd(dwc) && !mdwc->in_restart)
@@ -3690,6 +3696,17 @@ static int dwc_dpdm_cb(struct notifier_block *nb, unsigned long evt, void *p)
 
 	return NOTIFY_OK;
 }
+
+void op_release_usb_lock(void)
+{
+	dev_info(g_mdwc->dev, "%s enter\n", __func__);
+	if (g_mdwc->awake_status) {
+		dev_info(g_mdwc->dev, "%s relese lock\n", __func__);
+		pm_relax(g_mdwc->dev);
+		g_mdwc->awake_status = false;
+	}
+}
+
 static int dwc3_msm_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node, *dwc3_node;
@@ -3720,7 +3737,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		pr_err("%s: Unable to create workqueue dwc3_wq\n", __func__);
 		return -ENOMEM;
 	}
-
+	g_mdwc = mdwc;
 	/*
 	 * Create an ordered freezable workqueue for sm_work so that it gets
 	 * scheduled only after pm_resume has happened completely. This helps
@@ -4055,7 +4072,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			/* fall through */
 		default:
 			mdwc->vbus_active = true;
-			dwc->vbus_active = true;
 			break;
 		}
 
@@ -4186,6 +4202,15 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 		if (event == USB_DEVICE_ADD && udev->actconfig) {
 			if (!dwc3_msm_is_ss_rhport_connected(mdwc)) {
 				/*
+				 * controller may wakeup ss phy during hs data
+				 * transfers or doorbell rings. Power down the
+				 * ss phy to avoid turning on pipe clock during
+				 * these wake-ups.
+				 */
+				mdwc->ss_phy->flags |= PHY_WAKEUP_WA_EN;
+				usb_phy_powerdown(mdwc->ss_phy);
+
+				/*
 				 * Core clock rate can be reduced only if root
 				 * hub SS port is not enabled/connected.
 				 */
@@ -4200,6 +4225,8 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 				mdwc->max_rh_port_speed = USB_SPEED_SUPER;
 			}
 		} else {
+			usb_phy_powerup(mdwc->ss_phy);
+			mdwc->ss_phy->flags &= ~PHY_WAKEUP_WA_EN;
 			/* set rate back to default core clk rate */
 			clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
 			dev_dbg(mdwc->dev, "set core clk rate %ld\n",
@@ -4610,6 +4637,8 @@ set_prop:
 	return 0;
 }
 
+#define DWC3_DCTL 0xc704
+#define DWC3_DCTL_RUN_STOP BIT(31)
 
 /**
  * dwc3_otg_sm_work - workqueue function.
@@ -4626,6 +4655,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	int ret = 0;
 	unsigned long delay = 0;
 	const char *state;
+	u32 reg;
 
 	if (mdwc->dwc3)
 		dwc = platform_get_drvdata(mdwc->dwc3);
@@ -4695,9 +4725,19 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 				atomic_read(&mdwc->dev->power.usage_count));
 			dwc3_otg_start_peripheral(mdwc, 1);
 			mdwc->drd_state = DRD_STATE_PERIPHERAL;
+			if (!dwc->softconnect &&
+			get_psy_type(mdwc) == POWER_SUPPLY_TYPE_USB_CDP) {
+				dbg_event(0xFF, "cdp pullup dp", 0);
+
+				reg = dwc3_readl(dwc->regs, DWC3_DCTL);
+				reg |= DWC3_DCTL_RUN_STOP;
+				dwc3_writel(dwc->regs, DWC3_DCTL, reg);
+				break;
+			}
+
 			work = 1;
 		} else {
-			dwc3_msm_gadget_vbus_draw(mdwc, 0);
+			//dwc3_msm_gadget_vbus_draw(mdwc, 0);
 			dev_dbg(mdwc->dev, "Cable disconnected\n");
 		}
 		break;
