@@ -35,6 +35,9 @@
 #include "tfa98xx.h"
 #include "tfa.h"
 #include "tfa_internal.h"
+#if IS_ENABLED(CONFIG_SND_SOC_EBBA_AUDIO_KERNEL)
+#include <linux/hardware_info.h>        //add smartpa in hardwareInfo
+#endif
 
 /* required for enum tfa9912_irq */
 #include "tfa98xx_tfafieldnames.h"
@@ -168,6 +171,7 @@ static enum Tfa98xx_Error tfa9874_calibrate(struct tfa98xx **tfa98xx, int *speak
 	int imp, profile, cal_profile, i;
 	char buffer[6] = {0};
 	unsigned char bytes[6] = {0};
+	int num_bytes = 6;
 
 	cal_profile = tfaContGetCalProfile(tfa98xx[0]->tfa);
 	if (cal_profile >= 0)
@@ -205,7 +209,7 @@ static enum Tfa98xx_Error tfa9874_calibrate(struct tfa98xx **tfa98xx, int *speak
 	tfa98xx[0]->tfa->needs_reset = 0;
 
 	/* First read the GetStatusChange to clear the status (sticky) */
-	err = tfa_dsp_cmd_id_write_read(tfa98xx[0]->tfa, MODULE_FRAMEWORK, FW_PAR_ID_GET_STATUS_CHANGE, 3, (unsigned char *)buffer);
+	err = tfa_dsp_cmd_id_write_read(tfa98xx[0]->tfa, MODULE_FRAMEWORK, FW_PAR_ID_GET_STATUS_CHANGE, num_bytes, (unsigned char *)buffer);
 
 	/* We need to send zero's to trigger calibration */
 	memset(bytes, 0, 6);
@@ -213,14 +217,14 @@ static enum Tfa98xx_Error tfa9874_calibrate(struct tfa98xx **tfa98xx, int *speak
 
 	/* Wait a maximum of 5 seconds to get the calibration results */
 	for (i=0; i < 50; i++ ) {
-		/* Get the GetStatusChange results */
-		err = tfa_dsp_cmd_id_write_read(tfa98xx[0]->tfa, MODULE_FRAMEWORK, FW_PAR_ID_GET_STATUS_CHANGE, 3, (unsigned char *)buffer);
-
 		/* Avoid busload */
 		msleep_interruptible(100);
 
+		/* Get the GetStatusChange results */
+		err = tfa_dsp_cmd_id_write_read(tfa98xx[0]->tfa, MODULE_FRAMEWORK, FW_PAR_ID_GET_STATUS_CHANGE, num_bytes, (unsigned char *)buffer);
+
 		/* If the calibration trigger is set break the loop */
-		if(buffer[2] & TFADSP_FLAG_CALIBRATE_DONE) {
+		if(buffer[num_bytes - 1] & TFADSP_FLAG_CALIBRATE_DONE) {
 			break;
 		}
 
@@ -1602,6 +1606,10 @@ static int tfa98xx_get_enable_ctl(struct snd_kcontrol *kcontrol,
 static int tfa98xx_send_mute_cmd(void)
 {
 	uint8_t cmd[9]= {0x00, 0x81, 0x04,  0x00, 0x00, 0xff, 0x00, 0x00, 0xff};
+
+	if (tfa98xx_device_count == 1)
+		cmd[0] = 0x04;
+
 	pr_info("send mute command to host DSP.\n");
 	return send_tfa_cal_in_band(&cmd[0], sizeof(cmd));
 }
@@ -1901,8 +1909,8 @@ static void tfa98xx_add_widgets(struct tfa98xx *tfa98xx)
 	unsigned int num_dapm_widgets = ARRAY_SIZE(tfa98xx_dapm_widgets_common);
 
 //add by Multimedia,do not add the following non-used widgets to hold mic.
-    if(1)
-        return;
+	if(1)
+		return;
 
 	widgets = devm_kzalloc(&tfa98xx->i2c->dev,
 			sizeof(struct snd_soc_dapm_widget) *
@@ -2494,6 +2502,17 @@ static void tfa98xx_tapdet_work(struct work_struct *work)
 	queue_delayed_work(tfa98xx->tfa98xx_wq, &tfa98xx->tapdet_work, HZ/10);
 }
 
+static void tfa98xx_nmode_update_work(struct work_struct *work)
+{
+	struct tfa98xx *tfa98xx;
+
+	tfa98xx = container_of(work, struct tfa98xx, nmodeupdate_work.work);
+	mutex_lock(&tfa98xx->dsp_lock);
+	tfa_adapt_noisemode(tfa98xx->tfa);
+	mutex_unlock(&tfa98xx->dsp_lock);
+	queue_delayed_work(tfa98xx->tfa98xx_wq, &tfa98xx->nmodeupdate_work,5 * HZ);
+}
+
 static void tfa98xx_monitor(struct work_struct *work)
 {
 	struct tfa98xx *tfa98xx;
@@ -2858,6 +2877,8 @@ enum Tfa98xx_Error tfa98xx_adsp_send_calib_values(struct tfa98xx *tfa98xx)
 	struct tfa_device *tfa = tfa98xx->tfa;
 	int value = 0, nr, dsp_cal_value = 0;
 
+	bytes[0] = 0;
+
 	/* If calibration is set to once we load from MTP, else send zero's */
 	if (TFA_GET_BF(tfa, MTPEX) == 1 && tfa98xx->i2c->addr == 0x34)
 	{
@@ -2893,6 +2914,11 @@ enum Tfa98xx_Error tfa98xx_adsp_send_calib_values(struct tfa98xx *tfa98xx)
 		/* Speaker RDC */
 		if (value > 4000)
 			bytes[0] |= 0x10;
+	}
+
+	if (tfa98xx_device_count == 1 && bytes[0]) {
+		memcpy(&bytes[7], &bytes[4], sizeof(char)*3);
+		bytes[0] = 0x11;
 	}
 
 	if (bytes[0] == 0x11)
@@ -2986,31 +3012,36 @@ static int tfa98xx_mute(struct snd_soc_dai *dai, int mute, int stream)
 		if (tfa98xx->pstream != 0 || tfa98xx->cstream != 0) {
 			pr_err("%s: pstream = %d, cstream = %d\n",
 					__func__, tfa98xx->pstream, tfa98xx->cstream);
-			return 0;
+			//return 0;
 		}
 
-		tfa98xx_keyreg_print(tfa98xx);
+		if (stream == SNDRV_PCM_STREAM_PLAYBACK &&
+			tfa98xx->dsp_init != TFA98XX_DSP_INIT_STOPPED) {
+			tfa98xx_keyreg_print(tfa98xx);
 
-		mutex_lock(&tfa98xx_mutex);
-		tfa98xx_sync_count = 0;
-		mutex_unlock(&tfa98xx_mutex);
+			mutex_lock(&tfa98xx_mutex);
+			tfa98xx_sync_count = 0;
+			mutex_unlock(&tfa98xx_mutex);
 
-		cancel_delayed_work_sync(&tfa98xx->monitor_work);
+			cancel_delayed_work_sync(&tfa98xx->monitor_work);
 
-		cancel_delayed_work_sync(&tfa98xx->init_work);
+			cancel_delayed_work_sync(&tfa98xx->init_work);
 
-		if (tfa98xx->dsp_fw_state != TFA98XX_DSP_FW_OK) {
-			pr_err("%s: tfa98xx->dsp_fw_state = %d\n", __func__, tfa98xx->dsp_fw_state);
-			return 0;
-        }
+			if (tfa98xx->dsp_fw_state != TFA98XX_DSP_FW_OK) {
+				pr_err("%s: tfa98xx->dsp_fw_state = %d\n", __func__, tfa98xx->dsp_fw_state);
+				return 0;
+	        }
 
-		mutex_lock(&tfa98xx->dsp_lock);
-		tfa_dev_stop(tfa98xx->tfa);
-		tfa98xx->dsp_init = TFA98XX_DSP_INIT_STOPPED;
-		mutex_unlock(&tfa98xx->dsp_lock);
+			mutex_lock(&tfa98xx->dsp_lock);
+			tfa_dev_stop(tfa98xx->tfa);
+			tfa98xx->dsp_init = TFA98XX_DSP_INIT_STOPPED;
+			mutex_unlock(&tfa98xx->dsp_lock);
+			if(tfa98xx->flags & TFA98XX_FLAG_ADAPT_NOISE_MODE)
+				cancel_delayed_work_sync(&tfa98xx->nmodeupdate_work);
+         }
 	} else {
-		if (stream == SNDRV_PCM_STREAM_PLAYBACK)
 #ifdef TFA9894_NONDSP_STEREO
+		if (stream == SNDRV_PCM_STREAM_PLAYBACK)
 		{
 			tfa98xx->pstream = 1;
 
@@ -3026,9 +3057,14 @@ static int tfa98xx_mute(struct snd_soc_dai *dai, int mute, int stream)
 			   (tfa98xx->dsp_init != TFA98XX_DSP_INIT_PENDING))
 				tfa98xx_dsp_init(tfa98xx);
 			tfa98xx_keyreg_print(tfa98xx);
+
+			if(tfa98xx->flags & TFA98XX_FLAG_ADAPT_NOISE_MODE)
+				queue_delayed_work(tfa98xx->tfa98xx_wq, &tfa98xx->nmodeupdate_work, 0);
+
 		} else
 			tfa98xx->cstream = 1;
 #else
+		if (stream == SNDRV_PCM_STREAM_PLAYBACK)
 			tfa98xx->pstream = 1;
 		else
 			tfa98xx->cstream = 1;
@@ -3122,6 +3158,7 @@ static int tfa98xx_probe(struct snd_soc_component *component)
 	INIT_DELAYED_WORK(&tfa98xx->monitor_work, tfa98xx_monitor);
 	INIT_DELAYED_WORK(&tfa98xx->interrupt_work, tfa98xx_interrupt);
 	INIT_DELAYED_WORK(&tfa98xx->tapdet_work, tfa98xx_tapdet_work);
+	INIT_DELAYED_WORK(&tfa98xx->nmodeupdate_work, tfa98xx_nmode_update_work);
 
 	tfa98xx->component = component;
 
@@ -3445,9 +3482,11 @@ static ssize_t tfa9874_temperature_read(struct device *dev,
 
 	pr_info("%s: enter\n", __func__);
 
-	if(g_tfa98xx[0] == NULL || g_tfa98xx[1] == NULL)
-	{
-		pr_err("%s g_tfa98xx = NULL\n",__func__);
+	if (tfa98xx_device_count == 1 && g_tfa98xx[0] == NULL) {
+		pr_err("%s mono g_tfa98xx = NULL\n",__func__);
+		return 0;
+	} else if (tfa98xx_device_count == 2 && (g_tfa98xx[0] == NULL || g_tfa98xx[1] == NULL)) {
+		pr_err("%s stereo g_tfa98xx = NULL\n",__func__);
 		return 0;
 	}
 
@@ -3458,7 +3497,7 @@ static ssize_t tfa9874_temperature_read(struct device *dev,
 			__func__, g_tfa98xx[0]->i2c->addr, temp[0]);
 	}
 
-	if (g_tfa98xx[1]->tfa->is_probus_device) {
+	if (tfa98xx_device_count == 2 && g_tfa98xx[1]->tfa->is_probus_device) {
 		tfa98xx_read_register16(g_tfa98xx[1]->tfa, 22, &temp[1]);
 		temp[1] &= mask;
 		pr_info("%s: %#x PA temperature is %d\n",
@@ -3490,31 +3529,36 @@ static ssize_t tfa98xx_state_store(struct device *dev, struct device_attribute *
 static ssize_t tfa98xx_state_show(struct device *dev, struct device_attribute *attr,
 		char *buf)
 {
-	int ret;
+	int i, ret;
 	int impedance[2] = {0};
 	enum Tfa98xx_Error error;
 
 	pr_info("tfa98xx_state_show\n");
 
-	if(g_tfa98xx[0] == NULL || g_tfa98xx[1] == NULL)
-	{
-		pr_err("%s g_tfa98xx = NULL\n",__func__);
+	if (tfa98xx_device_count == 1 && g_tfa98xx[0] == NULL) {
+		pr_err("%s mono g_tfa98xx = NULL\n",__func__);
+		return 0;
+	} else if (tfa98xx_device_count == 2 && (g_tfa98xx[0] == NULL || g_tfa98xx[1] == NULL)) {
+		pr_err("%s stereo g_tfa98xx = NULL\n",__func__);
 		return 0;
 	}
 
+
 	if (g_tfa98xx[0]->tfa->is_probus_device) {
-		tfa_dev_mtp_set(g_tfa98xx[0]->tfa, TFA_MTP_EX, 0);
-		tfa_dev_mtp_set(g_tfa98xx[1]->tfa, TFA_MTP_EX, 0);
+		for (i = 0; i < tfa98xx_device_count; i++){
+			tfa_dev_mtp_set(g_tfa98xx[i]->tfa, TFA_MTP_EX, 0);
+		}
 		error = tfa9874_calibrate((struct tfa98xx **)g_tfa98xx, &impedance[0]);
 		if (error != Tfa98xx_Error_Ok) {
 			impedance[0] = 0;
 			impedance[1] = 0;
 		}
 
-		pr_info("%s: %#x speaker impedance[0] is %d\n",
-			__func__, g_tfa98xx[0]->i2c->addr, impedance[0]);
-		pr_info("%s: %#x speaker impedance[1] is %d\n",
-			__func__, g_tfa98xx[1]->i2c->addr, impedance[1]);
+		for (i = 0; i < tfa98xx_device_count; i++) {
+			pr_info("%s: %#x speaker impedance[%d] is %d\n",
+				__func__, g_tfa98xx[i]->i2c->addr, i, impedance[i]);
+		}
+
 	}
 
 	/*
@@ -3532,6 +3576,14 @@ static ssize_t tfa98xx_state_show(struct device *dev, struct device_attribute *a
 static struct device_attribute tfa98xx_state_attr =
      __ATTR(calibra, 0444, tfa98xx_state_show, tfa98xx_state_store);
 
+#if IS_ENABLED(CONFIG_SND_SOC_EBBA_AUDIO_KERNEL)
+void tfa98xx_firmware_show()
+{
+	 char  tfa98xx_name[30] ="";
+	 snprintf(tfa98xx_name,sizeof(tfa98xx_name),"tfa9873EUK/N1");
+	 hardwareinfo_set_prop(HARDWARE_SMARTPA, tfa98xx_name);
+}
+#endif
 
 static int tfa98xx_i2c_probe(struct i2c_client *i2c,
 			     const struct i2c_device_id *id)
@@ -3560,6 +3612,7 @@ static int tfa98xx_i2c_probe(struct i2c_client *i2c,
 	tfa98xx->dsp_init = TFA98XX_DSP_INIT_STOPPED;
 	tfa98xx->rate = 48000; /* init to the default sample rate (48kHz) */
 	tfa98xx->tfa = NULL;
+	tfa98xx->is_dummy_codec = 0;
 
 	tfa98xx->regmap = devm_regmap_init_i2c(i2c, &tfa98xx_regmap);
 	if (IS_ERR(tfa98xx->regmap)) {
@@ -3635,6 +3688,13 @@ static int tfa98xx_i2c_probe(struct i2c_client *i2c,
 			tfa98xx->flags |= TFA98XX_FLAG_REMOVE_PLOP_NOISE;
 			/* tfa98xx->flags |= TFA98XX_FLAG_LP_MODES; */
 			tfa98xx->flags |= TFA98XX_FLAG_TDM_DEVICE;
+			break;
+		case 0x73: /* tfa9873 */
+			pr_info("TFA9873 detected\n");
+			tfa98xx->flags |= TFA98XX_FLAG_MULTI_MIC_INPUTS;
+			tfa98xx->flags |= TFA98XX_FLAG_CALIBRATION_CTL;
+			tfa98xx->flags |= TFA98XX_FLAG_TDM_DEVICE;
+			tfa98xx->flags |= TFA98XX_FLAG_ADAPT_NOISE_MODE;
 			break;
 		case 0x74: /* tfa9874 */
 			pr_info("TFA9874 detected\n");
@@ -3805,7 +3865,9 @@ register_codec:
 		dev_info(&i2c->dev, "error creating sysfs files\n");
 
 	pr_info("%s Probe completed successfully!\n", __func__);
-
+#if IS_ENABLED(CONFIG_SND_SOC_EBBA_AUDIO_KERNEL)
+	tfa98xx_firmware_show();
+#endif
 	INIT_LIST_HEAD(&tfa98xx->list);
 
 	mutex_lock(&tfa98xx_mutex);
@@ -3829,6 +3891,7 @@ static int tfa98xx_i2c_remove(struct i2c_client *i2c)
 	cancel_delayed_work_sync(&tfa98xx->monitor_work);
 	cancel_delayed_work_sync(&tfa98xx->init_work);
 	cancel_delayed_work_sync(&tfa98xx->tapdet_work);
+	cancel_delayed_work_sync(&tfa98xx->nmodeupdate_work);
 
 	device_remove_bin_file(&i2c->dev, &dev_attr_reg);
 	device_remove_bin_file(&i2c->dev, &dev_attr_rw);
@@ -3871,6 +3934,7 @@ MODULE_DEVICE_TABLE(i2c, tfa98xx_i2c_id);
 #ifdef CONFIG_OF
 static struct of_device_id tfa98xx_dt_match[] = {
 	{ .compatible = "nxp,tfa9872" },
+	{ .compatible = "nxp,tfa9873" },
 	{ .compatible = "nxp,tfa9874" },
 	{ .compatible = "nxp,tfa9888" },
 	{ .compatible = "nxp,tfa9890" },
