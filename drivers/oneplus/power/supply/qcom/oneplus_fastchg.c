@@ -137,7 +137,6 @@ static void oneplus_notify_dash_charger_type(enum fast_charger_type type);
 #endif
 static void oneplus_notify_adapter_sid(unsigned int sid);
 void switch_mode_to_normal(void);
-extern void msm_cpuidle_set_sleep_disable(bool disable);
 
 static int is_usb_pluged(void)
 {
@@ -2508,7 +2507,6 @@ static void clean_status(void)
 		fastchg_di->fast_chg_started = false;
 		fastchg_di->fast_chg_ing = false;
 		update_fast_chg_started();
-		msm_cpuidle_set_sleep_disable(false);
 	}
 }
 static void disable_mcu_work_func(struct work_struct *work)
@@ -2804,7 +2802,6 @@ void switch_mode_to_normal(void)
 		mcu_en_gpio_set(1);
 		op_check_charger_collapse_rerun_aicl();
 	}
-	msm_cpuidle_set_sleep_disable(false);
 	update_disconnect_pd_status(false);
 }
 
@@ -3152,7 +3149,6 @@ static long  dash_dev_ioctl(struct file *filp, unsigned int cmd,
 				di->fast_chg_error = false;
 				dash_write_4bits(di, ALLOW_DATA);
 				di->fast_chg_started = true;
-				msm_cpuidle_set_sleep_disable(true);
 				if (di->is_swarp_supported) {
 					di->current_max_val = op_get_allowed_current_max();
 					// all skin_thermal limit current should not greater than max.
