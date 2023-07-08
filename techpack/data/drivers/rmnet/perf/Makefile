@@ -1,13 +1,1 @@
-#By default build for CLD
-RMNET_PERF_SELECT := RMNET_PERF=m
-KBUILD_OPTIONS += $(RMNET_PERF_SELECT)
-KBUILD_OPTIONS += $(KBUILD_EXTRA) # Extra config if any
-
-all:
-	$(MAKE) -C $(KERNEL_SRC) M=$(shell pwd) modules $(KBUILD_OPTIONS)
-
-modules_install:
-	$(MAKE) INSTALL_MOD_STRIP=1 -C $(KERNEL_SRC) M=$(shell pwd) modules_install
-
-clean:
-	$(MAKE) -C $(KERNEL_SRC) M=$(PWD) clean
+obj-$(CONFIG_RMNET_PERF) += rmnet_perf_config.o rmnet_perf_core.o rmnet_perf_opt.o rmnet_perf_tcp_opt.o rmnet_perf_udp_opt.o
