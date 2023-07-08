@@ -1,13 +1,1 @@
-KERNEL_SRC ?= /lib/modules/$(shell uname -r)/build
-
-KBUILD_OPTIONS := RMNET_SHS_ROOT=$(PWD)
-KBUILD_OPTIONS += MODNAME?=rmnet_shs
-
-all:
-	$(MAKE) -C $(KERNEL_SRC) M=$(shell pwd) modules $(KBUILD_OPTIONS)
-
-modules_install:
-	$(MAKE) INSTALL_MOD_STRIP=1 -C $(KERNEL_SRC) M=$(shell pwd) modules_install
-
-clean:
-	$(MAKE) -C $(KERNEL_SRC) M=$(PWD) clean
+obj-$(CONFIG_RMNET_SHS) += rmnet_shs_config.o rmnet_shs_freq.o rmnet_shs_main.o rmnet_shs_wq.o rmnet_shs_wq_genl.o rmnet_shs_wq_mem.o
