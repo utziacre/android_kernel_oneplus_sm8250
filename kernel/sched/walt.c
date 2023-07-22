@@ -118,7 +118,7 @@ unsigned int sysctl_sched_dynamic_ravg_window_enable = (HZ == 250);
 __read_mostly unsigned int sched_ravg_window = DEFAULT_SCHED_RAVG_WINDOW;
 __read_mostly unsigned int new_sched_ravg_window = DEFAULT_SCHED_RAVG_WINDOW;
 
-static DEFINE_SPINLOCK(sched_ravg_window_lock);
+static DEFINE_RAW_SPINLOCK(sched_ravg_window_lock);
 u64 sched_ravg_window_change_time;
 /*
  * A after-boot constant divisor for cpu_util_freq_walt() to apply the load
@@ -3435,7 +3435,7 @@ void walt_irq_work(struct irq_work *irq_work)
 	 * not rolled over properly as mark_start > window_start.
 	 */
 	if (!is_migration) {
-		spin_lock_irqsave(&sched_ravg_window_lock, flags);
+		raw_spin_lock_irqsave(&sched_ravg_window_lock, flags);
 
 		if ((sched_ravg_window != new_sched_ravg_window) &&
 		    (wc < this_rq()->window_start + new_sched_ravg_window)) {
@@ -3447,7 +3447,7 @@ void walt_irq_work(struct irq_work *irq_work)
 			sched_ravg_window = new_sched_ravg_window;
 			walt_tunables_fixup();
 		}
-		spin_unlock_irqrestore(&sched_ravg_window_lock, flags);
+		raw_spin_unlock_irqrestore(&sched_ravg_window_lock, flags);
 	}
 
 	release_rq_locks_irqrestore(cpu_possible_mask, &flag);
@@ -3666,13 +3666,13 @@ static inline void sched_window_nr_ticks_change(void)
 	int new_ticks;
 	unsigned long flags;
 
-	spin_lock_irqsave(&sched_ravg_window_lock, flags);
+	raw_spin_lock_irqsave(&sched_ravg_window_lock, flags);
 
 	new_ticks = min(display_sched_ravg_window_nr_ticks,
 			sysctl_sched_ravg_window_nr_ticks);
 
 	new_sched_ravg_window = new_ticks * (NSEC_PER_SEC / HZ);
-	spin_unlock_irqrestore(&sched_ravg_window_lock, flags);
+	raw_spin_unlock_irqrestore(&sched_ravg_window_lock, flags);
 }
 
 int sched_ravg_window_handler(struct ctl_table *table,
