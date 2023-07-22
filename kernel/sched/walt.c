@@ -2642,7 +2642,7 @@ unsigned int __read_mostly sysctl_sched_coloc_downmigrate_ns;
 
 struct related_thread_group *related_thread_groups[MAX_NUM_CGROUP_COLOC_ID];
 static LIST_HEAD(active_related_thread_groups);
-DEFINE_RWLOCK(related_thread_group_lock);
+DEFINE_RAW_SPINLOCK(related_thread_group_lock);
 
 /*
  * Task groups whose aggregate demand on a cpu is more than
@@ -2920,7 +2920,7 @@ void add_new_task_to_grp(struct task_struct *new)
 		return;
 
 	grp = lookup_related_thread_group(DEFAULT_CGROUP_COLOC_ID);
-	write_lock_irqsave(&related_thread_group_lock, flags);
+	raw_spin_lock_irqsave(&related_thread_group_lock, flags);
 
 	/*
 	 * It's possible that someone already added the new task to the
@@ -2928,7 +2928,7 @@ void add_new_task_to_grp(struct task_struct *new)
 	 * cgroup. check these conditions under lock.
 	 */
 	if (!schedtune_task_colocated(new) || new->grp) {
-		write_unlock_irqrestore(&related_thread_group_lock, flags);
+		raw_spin_unlock_irqrestore(&related_thread_group_lock, flags);
 		return;
 	}
 
@@ -2938,7 +2938,7 @@ void add_new_task_to_grp(struct task_struct *new)
 	list_add(&new->grp_list, &grp->tasks);
 
 	raw_spin_unlock(&grp->lock);
-	write_unlock_irqrestore(&related_thread_group_lock, flags);
+	raw_spin_unlock_irqrestore(&related_thread_group_lock, flags);
 }
 
 static int __sched_set_group_id(struct task_struct *p, unsigned int group_id)
@@ -2951,7 +2951,7 @@ static int __sched_set_group_id(struct task_struct *p, unsigned int group_id)
 		return -EINVAL;
 
 	raw_spin_lock_irqsave(&p->pi_lock, flags);
-	write_lock(&related_thread_group_lock);
+	raw_spin_lock(&related_thread_group_lock);
 
 	/* Switching from one group to another directly is not permitted */
 	if ((current != p && p->flags & PF_EXITING) ||
@@ -2970,7 +2970,7 @@ static int __sched_set_group_id(struct task_struct *p, unsigned int group_id)
 
 	rc = add_task_to_group(p, grp);
 done:
-	write_unlock(&related_thread_group_lock);
+	raw_spin_unlock(&related_thread_group_lock);
 	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
 
 	return rc;
@@ -3017,9 +3017,9 @@ static int __init create_default_coloc_group(void)
 	unsigned long flags;
 
 	grp = lookup_related_thread_group(DEFAULT_CGROUP_COLOC_ID);
-	write_lock_irqsave(&related_thread_group_lock, flags);
+	raw_spin_lock_irqsave(&related_thread_group_lock, flags);
 	list_add(&grp->list, &active_related_thread_groups);
-	write_unlock_irqrestore(&related_thread_group_lock, flags);
+	raw_spin_unlock_irqrestore(&related_thread_group_lock, flags);
 
 	return 0;
 }
