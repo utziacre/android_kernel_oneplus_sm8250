@@ -3336,19 +3336,13 @@ void walt_irq_work(struct irq_work *irq_work)
 	bool is_migration = false, is_asym_migration = false;
 	u64 total_grp_load = 0, min_cluster_grp_load = 0;
 	int level = 0;
-	unsigned long flags;
+	unsigned long flags, flag;
 
 	/* Am I the window rollover work or the migration work? */
 	if (irq_work == &walt_migration_irq_work)
 		is_migration = true;
 
-	for_each_cpu(cpu, cpu_possible_mask) {
-		if (level == 0)
-			raw_spin_lock(&cpu_rq(cpu)->lock);
-		else
-			raw_spin_lock_nested(&cpu_rq(cpu)->lock, level);
-		level++;
-	}
+	acquire_rq_locks_irqsave(cpu_possible_mask, &flag);
 
 	wc = sched_ktime_clock();
 	walt_load_reported_window = atomic64_read(&walt_irq_work_lastq_ws);
@@ -3456,8 +3450,7 @@ void walt_irq_work(struct irq_work *irq_work)
 		spin_unlock_irqrestore(&sched_ravg_window_lock, flags);
 	}
 
-	for_each_cpu(cpu, cpu_possible_mask)
-		raw_spin_unlock(&cpu_rq(cpu)->lock);
+	release_rq_locks_irqrestore(cpu_possible_mask, &flag);
 
 	if (!is_migration)
 		core_ctl_check(this_rq()->window_start);
