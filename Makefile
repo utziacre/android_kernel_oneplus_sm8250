@@ -679,6 +679,14 @@ KBUILD_CFLAGS	+= $(call cc-disable-warning, format-truncation)
 KBUILD_CFLAGS	+= $(call cc-disable-warning, format-overflow)
 KBUILD_CFLAGS	+= $(call cc-disable-warning, int-in-bool-context)
 KBUILD_CFLAGS	+= $(call cc-disable-warning, address-of-packed-member)
+KBUILD_CFLAGS   += $(call cc-disable-warning, unused-variable)
+KBUILD_CFLAGS   += $(call cc-disable-warning, align-mismatch)
+KBUILD_CFLAGS   += $(call cc-disable-warning, pointer-to-int-cast)
+KBUILD_CFLAGS   += $(call cc-disable-warning, unused-function)
+KBUILD_CFLAGS   += $(call cc-disable-warning, enum-conversion)
+KBUILD_CFLAGS   += $(call cc-disable-warning, array-parameter)
+KBUILD_CFLAGS   += $(call cc-disable-warning, constant-logical-operand)
+KBUILD_CFLAGS   += $(call cc-disable-warning, fortify-source)
 
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS   += -Os
@@ -711,10 +719,6 @@ ifdef CONFIG_READABLE_ASM
 KBUILD_CFLAGS += $(call cc-option,-fno-reorder-blocks,) \
                  $(call cc-option,-fno-ipa-cp-clone,) \
                  $(call cc-option,-fno-partial-inlining)
-endif
-
-ifneq ($(CONFIG_FRAME_WARN),0)
-KBUILD_CFLAGS += $(call cc-option,-Wframe-larger-than=${CONFIG_FRAME_WARN})
 endif
 
 stackp-flags-$(CONFIG_CC_HAS_STACKPROTECTOR_NONE) := -fno-stack-protector
