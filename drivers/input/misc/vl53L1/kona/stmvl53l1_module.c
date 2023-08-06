@@ -161,9 +161,9 @@ static ssize_t stmvl53l1_show_##sysfs_name(struct device *dev, \
 	struct stmvl53l1_data *data = dev_get_drvdata(dev); \
 	int param; \
 \
-	mutex_lock(&data->work_mutex); \
+	rt_mutex_lock(&data->work_mutex); \
 	param = data->sysfs_name; \
-	mutex_unlock(&data->work_mutex);; \
+	rt_mutex_unlock(&data->work_mutex); \
 \
 	return scnprintf(buf, PAGE_SIZE, "%d\n", param); \
 } \
@@ -176,7 +176,7 @@ static ssize_t stmvl53l1_store_##sysfs_name(struct device *dev, \
 	int rc; \
 	int param; \
 \
-	mutex_lock(&data->work_mutex); \
+	rt_mutex_lock(&data->work_mutex); \
 \
 	if (kstrtoint(buf, 0, &param)) { \
 		vl53l1_errmsg("invalid syntax in %s", buf); \
@@ -184,7 +184,7 @@ static ssize_t stmvl53l1_store_##sysfs_name(struct device *dev, \
 	} else \
 		rc = stmvl53l1_set_##sysfs_name(data, param); \
 \
-	mutex_unlock(&data->work_mutex); \
+	rt_mutex_unlock(&data->work_mutex); \
 \
 	return rc ? rc : count; \
 } \
@@ -980,7 +980,7 @@ static ssize_t stmvl53l1_show_roi(struct device *dev,
 	int n;
 
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 	if (data->roi_cfg.NumberOfRoi == 0) {
 		/* none define by user */
 		/* we could get what stored but may not even be default */
@@ -996,7 +996,7 @@ static ssize_t stmvl53l1_show_roi(struct device *dev,
 							'\n' : ',');
 		}
 	}
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 	return n;
 }
 
@@ -1011,7 +1011,7 @@ static ssize_t stmvl53l1_store_roi(struct device *dev,
 	VL53L1_UserRoi_t rois[VL53L1_MAX_USER_ZONES];
 	int rc;
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 	if (data->enable_sensor) {
 		vl53l1_errmsg(" cant set roi now\n");
 		rc = -EBUSY;
@@ -1053,7 +1053,7 @@ static ssize_t stmvl53l1_store_roi(struct device *dev,
 			rc = -EINVAL;
 		}
 	}
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 	vl53l1_dbgmsg("ret %d count %d\n", rc, (int)count);
 
 	return rc;
@@ -1356,13 +1356,13 @@ static ssize_t stmvl53l1_do_flush(struct device *dev,
 {
 	struct stmvl53l1_data *data = dev_get_drvdata(dev);
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 
 	data->flush_todo_counter++;
 	if (data->enable_sensor == 0)
 		stmvl53l1_insert_flush_events_lock(data);
 
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return count;
 }
@@ -1531,7 +1531,7 @@ static ssize_t stmvl53l1_store_autonomous_config(struct device *dev,
 	const char *buf_ori = buf;
 	int rc;
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 
 	if (data->enable_sensor)
 		goto busy;
@@ -1574,7 +1574,7 @@ static ssize_t stmvl53l1_store_autonomous_config(struct device *dev,
 	data->auto_config.Rate.High = r_High;
 	data->auto_config.Rate.Low = r_Low;
 
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return count;
 
@@ -1589,7 +1589,7 @@ invalid:
 	goto error;
 
 error:
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return rc;
 }
@@ -1698,7 +1698,7 @@ static ssize_t stmvl53l1_store_dmax_reflectance(struct device *dev,
 	const char *buf_ori = buf;
 	int rc;
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 
 	buf = parse_FixPoint16x16(buf, &dmax_reflectance, true);
 	if (!buf)
@@ -1707,7 +1707,7 @@ static ssize_t stmvl53l1_store_dmax_reflectance(struct device *dev,
 	if (rc)
 		goto error;
 
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return count;
 
@@ -1717,7 +1717,7 @@ invalid:
 	goto error;
 
 error:
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return rc;
 }
@@ -1812,7 +1812,7 @@ static ssize_t stmvl53l1_store_tuning(struct device *dev,
 	int n;
 	int rc;
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 
 	n = sscanf(buf, "%d %d", &key, &value);
 	if (n != 2) {
@@ -1823,12 +1823,12 @@ static ssize_t stmvl53l1_store_tuning(struct device *dev,
 	if (rc)
 		goto error;
 
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return count;
 
 error:
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return rc;
 }
@@ -1877,7 +1877,7 @@ static ssize_t stmvl53l1_show_tuning_status(struct device *dev,
 	int i;
 	int pos = 0;
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 
 	for (i = 0; i < max_tuning_key; ++i) {
 		rc = stmvl53l1_display_tuning_key(data, buf, &pos, i);
@@ -1885,7 +1885,7 @@ static ssize_t stmvl53l1_show_tuning_status(struct device *dev,
 			break;
 	}
 
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return rc ? rc : pos;
 }
@@ -1956,9 +1956,9 @@ static ssize_t stmvl53l1_show_is_xtalk_value_changed_config(struct device *dev,
 	struct stmvl53l1_data *data = dev_get_drvdata(dev);
 	int param;
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 	param = data->is_xtalk_value_changed;
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return scnprintf(buf, PAGE_SIZE, "%d\n", param);
 }
@@ -2013,7 +2013,7 @@ static ssize_t stmvl53l1_calib_data_read(struct file *filp,
 	int rc;
 	void *src = (void *) &calib;
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 
 	vl53l1_dbgmsg("off = %lld / count = %d", off, count);
 
@@ -2035,7 +2035,7 @@ static ssize_t stmvl53l1_calib_data_read(struct file *filp,
 		count = sizeof(VL53L1_CalibrationData_t) - off;
 	memcpy(buf, src + off, count);
 
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return count;
 
@@ -2045,7 +2045,7 @@ invalid:
 	goto error;
 
 error:
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return rc;
 }
@@ -2058,7 +2058,7 @@ static ssize_t stmvl53l1_calib_data_write(struct file *filp,
 	struct stmvl53l1_data *data = dev_get_drvdata(dev);
 	int rc;
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 
 	vl53l1_dbgmsg("off = %lld / count = %d", off, count);
 
@@ -2080,7 +2080,7 @@ static ssize_t stmvl53l1_calib_data_write(struct file *filp,
 		goto error;
 	}
 
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return count;
 
@@ -2090,7 +2090,7 @@ invalid:
 	goto error;
 
 error:
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return rc;
 }
@@ -2114,7 +2114,7 @@ static ssize_t stmvl53l1_zone_calib_data_read(struct file *filp,
 	int rc;
 	void *src = (void *) &data->calib.data;
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 
 	vl53l1_dbgmsg("off = %lld / count = %d", off, count);
 
@@ -2137,7 +2137,7 @@ static ssize_t stmvl53l1_zone_calib_data_read(struct file *filp,
 		count = sizeof(stmvl531_zone_calibration_data_t) - off;
 	memcpy(buf, src + off, count);
 
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return count;
 
@@ -2147,7 +2147,7 @@ invalid:
 	goto error;
 
 error:
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return rc;
 }
@@ -2161,7 +2161,7 @@ static ssize_t stmvl53l1_zone_calib_data_write(struct file *filp,
 	int rc;
 	void *dst = &data->calib.data;
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 
 	vl53l1_dbgmsg("off = %lld / count = %d", off, count);
 
@@ -2187,7 +2187,7 @@ static ssize_t stmvl53l1_zone_calib_data_write(struct file *filp,
 		data->current_roi_id = data->calib.data.id;
 	}
 
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return count;
 
@@ -2197,7 +2197,7 @@ invalid:
 	goto error;
 
 error:
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return rc;
 }
@@ -2282,7 +2282,7 @@ static int ctrl_start(struct stmvl53l1_data *data)
 {
 	int rc;
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 
 	if (data->is_device_remove) {
 		rc = -ENODEV;
@@ -2301,7 +2301,7 @@ static int ctrl_start(struct stmvl53l1_data *data)
 	vl53l1_dbgmsg(" final state = %d\n", data->enable_sensor);
 
 done:
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return rc;
 }
@@ -2346,7 +2346,7 @@ static int ctrl_stop(struct stmvl53l1_data *data)
 {
 	int rc;
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 
 	if (data->is_device_remove) {
 		rc = -ENODEV;
@@ -2358,7 +2358,7 @@ static int ctrl_stop(struct stmvl53l1_data *data)
 		rc = -EBUSY;
 
 done:
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return rc;
 }
@@ -2367,7 +2367,7 @@ static int ctrl_getdata(struct stmvl53l1_data *data, void __user *p)
 {
 	int rc;
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 
 	if (data->is_device_remove) {
 		rc = -ENODEV;
@@ -2382,7 +2382,7 @@ static int ctrl_getdata(struct stmvl53l1_data *data, void __user *p)
 	}
 
 done:
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return rc;
 }
@@ -2398,9 +2398,9 @@ static bool sleep_for_data_condition(struct stmvl53l1_data *data, pid_t pid,
 {
 	bool res;
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 	res = is_new_data_for_me(data, pid, head);
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return res;
 }
@@ -2410,7 +2410,7 @@ static int sleep_for_data(struct stmvl53l1_data *data, pid_t pid,
 {
 	int rc;
 
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 	if (1) {
 		rc = wait_event_killable(data->waiter_for_data,
 		sleep_for_data_condition(data, pid, head));
@@ -2418,7 +2418,7 @@ static int sleep_for_data(struct stmvl53l1_data *data, pid_t pid,
 		rc = wait_event_killable_timeout(data->waiter_for_data,
 		sleep_for_data_condition(data, pid, head),2*HZ);
 	}
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 
 	return data->enable_sensor ? rc : -ENODEV;
 }
@@ -2428,7 +2428,7 @@ static int ctrl_getdata_blocking(struct stmvl53l1_data *data, void __user *p)
 	int rc = 0;
 	pid_t pid = current->pid;
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 	/* If device not ranging then exit on error */
 	if (data->is_device_remove || !data->enable_sensor) {
 		rc = -ENODEV;
@@ -2448,7 +2448,7 @@ static int ctrl_getdata_blocking(struct stmvl53l1_data *data, void __user *p)
 	rc = add_reader(pid, &data->simple_data_reader_list);
 
 done:
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return rc;
 }
@@ -2459,7 +2459,7 @@ static int ctrl_mz_data_common(struct stmvl53l1_data *data, void __user *p,
 	struct stmvl53l1_data_with_additional __user *d = p;
 	int rc;
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 	if (data->is_device_remove) {
 		rc = -ENODEV;
 		goto done;
@@ -2487,7 +2487,7 @@ static int ctrl_mz_data_common(struct stmvl53l1_data *data, void __user *p,
 		rc = -ENOEXEC;
 
 done:
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return rc;
 }
@@ -2499,7 +2499,7 @@ static int ctrl_mz_data_blocking_common(struct stmvl53l1_data *data,
 	struct stmvl53l1_data_with_additional __user *d = p;
 	pid_t pid = current->pid;
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 	if (data->is_device_remove) {
 		rc = -ENODEV;
 		goto done;
@@ -2535,7 +2535,7 @@ static int ctrl_mz_data_blocking_common(struct stmvl53l1_data *data,
 	rc = add_reader(pid, &data->mz_data_reader_list);
 
 done:
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return rc;
 }
@@ -2665,7 +2665,7 @@ static int ctrl_params(struct stmvl53l1_data *data, void __user *p)
 	int rc, rc2;
 	struct stmvl53l1_parameter param;
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 
 	if (data->is_device_remove) {
 		rc = -ENODEV;
@@ -2736,7 +2736,7 @@ static int ctrl_params(struct stmvl53l1_data *data, void __user *p)
 		}
 	}
 done:
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 	return rc;
 }
 
@@ -2755,7 +2755,7 @@ static int ctrl_roi(struct stmvl53l1_data *data, void __user *p)
 	int roi_cnt;
 	struct stmvl53l1_roi_full_t rois;
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 	if (data->is_device_remove) {
 		rc = -ENODEV;
 		goto done;
@@ -2812,7 +2812,7 @@ static int ctrl_roi(struct stmvl53l1_data *data, void __user *p)
 		memcpy(&data->roi_cfg, &rois.roi_cfg, sizeof(data->roi_cfg));
 	}
 done:
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 	return rc;
 }
 
@@ -2821,7 +2821,7 @@ static int ctrl_autonomous_config(struct stmvl53l1_data *data, void __user *p)
 	int rc = 0;
 	struct stmvl53l1_autonomous_config_t full;
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 	if (data->is_device_remove) {
 		rc = -ENODEV;
 		goto done;
@@ -2850,7 +2850,7 @@ static int ctrl_autonomous_config(struct stmvl53l1_data *data, void __user *p)
 	}
 
 done:
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return rc;
 }
@@ -2862,7 +2862,7 @@ static int ctrl_calibration_data(struct stmvl53l1_data *data, void __user *p)
 	int data_offset = offsetof(struct stmvl53l1_ioctl_calibration_data_t,
 					data);
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 
 	if (data->is_device_remove) {
 		rc = -ENODEV;
@@ -2906,7 +2906,7 @@ static int ctrl_calibration_data(struct stmvl53l1_data *data, void __user *p)
 	}
 
 done:
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return rc;
 }
@@ -2919,7 +2919,7 @@ static int ctrl_zone_calibration_data(struct stmvl53l1_data *data,
 	int data_offset =
 		offsetof(struct stmvl53l1_ioctl_zone_calibration_data_t, data);
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 
 	calib = &data->calib;
 	if (data->is_device_remove) {
@@ -2971,7 +2971,7 @@ static int ctrl_zone_calibration_data(struct stmvl53l1_data *data,
 	}
 
 done:
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return rc;
 }
@@ -3182,7 +3182,7 @@ static int ctrl_perform_calibration(struct stmvl53l1_data *data, void __user *p)
 	int rc;
 	struct stmvl53l1_ioctl_perform_calibration_t calib;
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 
 	if (data->is_device_remove) {
 		rc = -ENODEV;
@@ -3254,7 +3254,7 @@ static int ctrl_perform_calibration(struct stmvl53l1_data *data, void __user *p)
 done:
 	data->is_calibrating = false;
 	data->is_first_start_done = true;
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	return rc;
 }
@@ -3640,14 +3640,14 @@ static void stmvl53l1_work_handler(struct work_struct *work)
 
 	data = container_of(work, struct stmvl53l1_data, dwork.work);
 	work_dbg("enter");
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 	stmvl53l1_intr_process(data);
 	if (data->poll_mode && data->enable_sensor) {
 		/* re-sched ourself */
 		schedule_delayed_work(&data->dwork,
 			msecs_to_jiffies(data->poll_delay_ms));
 	}
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 }
 
 static void stmvl53l1_input_push_data_singleobject(struct stmvl53l1_data *data)
@@ -3972,7 +3972,7 @@ int stmvl53l1_intr_handler(struct stmvl53l1_data *data)
 {
 	int rc;
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 
 	/* handle it only if if we are not stopped */
 	if (data->enable_sensor) {
@@ -3987,7 +3987,7 @@ int stmvl53l1_intr_handler(struct stmvl53l1_data *data)
 		rc = 0;
 	}
 
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 	return rc;
 }
 
@@ -4018,7 +4018,7 @@ int stmvl53l1_setup(struct stmvl53l1_data *data)
 
 	/* init mutex */
 	/* mutex_init(&data->update_lock); */
-	mutex_init(&data->work_mutex);
+	rt_mutex_init(&data->work_mutex);
 
 	/* init work handler */
 	INIT_DELAYED_WORK(&data->dwork, stmvl53l1_work_handler);
