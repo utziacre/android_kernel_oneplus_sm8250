@@ -190,7 +190,7 @@ struct stmvl53l1_data {
 	void *client_object;	/*!< cci or i2c model i/f specific ptr  */
 	bool is_device_remove;	/*!< true when device has been remove */
 
-	struct mutex work_mutex; /*!< main dev mutex/lock */;
+	struct rt_mutex work_mutex; /*!< main dev mutex/lock */;
 	struct delayed_work	dwork;
 	/*!< work for pseudo irq polling check  */
 
