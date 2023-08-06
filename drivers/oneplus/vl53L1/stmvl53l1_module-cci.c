@@ -211,7 +211,7 @@ static int32_t stmvl53l1_remove_cci(struct platform_device *pdev)
     struct i2c_data *i2c_data = (struct i2c_data *)data->client_object;
 
     vl53l1_dbgmsg("Enter\n");
-    mutex_lock(&data->work_mutex);
+    rt_mutex_lock(&data->work_mutex);
     /* main driver cleanup */
     stmvl53l1_cleanup(data);
 
@@ -227,7 +227,7 @@ static int32_t stmvl53l1_remove_cci(struct platform_device *pdev)
     /* release gpios */
     stmvl53l1_release_gpios(i2c_data);
 
-    mutex_unlock(&data->work_mutex);
+    rt_mutex_unlock(&data->work_mutex);
 
     stmvl53l1_put(data->client_object);
 
