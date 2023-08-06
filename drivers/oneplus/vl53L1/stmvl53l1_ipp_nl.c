@@ -157,7 +157,7 @@ int ipp_in_process(struct ipp_work_t *pwork)
 	 * with irq path.
 	 */
 	mutex_unlock(&ipp_mutex);
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 	if (data->ipp.buzy == IPP_STATE_PENDING) {
 		/* if  it was already handled ignore it */
 		if (data->ipp.waited_xfer_id == pwork->xfer_id) {
@@ -175,7 +175,7 @@ int ipp_in_process(struct ipp_work_t *pwork)
 			data->id, data->ipp.buzy, data->ipp.waited_xfer_id,
 			pwork->xfer_id);
 done_lock:
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 	mutex_lock(&ipp_mutex);
 
 	return 0;
@@ -227,7 +227,7 @@ int stmvl53l1_ipp_do(struct stmvl53l1_data *data,
 		/* send ok put the ipp on buzy state while locked */
 		data->ipp.buzy = IPP_STATE_PENDING;
 		/*  unlock now that state is marked buzy */
-		mutex_unlock(&data->work_mutex);
+		rt_mutex_unlock(&data->work_mutex);
 
 		/* put task to wait for completion */
 		ipp_dbg("to wait");
@@ -236,7 +236,7 @@ int stmvl53l1_ipp_do(struct stmvl53l1_data *data,
 			msecs_to_jiffies(IPP_TIMEOUT_MS));
 
 		/* relock the main lock */
-		mutex_lock(&data->work_mutex);
+		rt_mutex_lock(&data->work_mutex);
 
 		rc = (data->ipp.buzy & IPP_STATE_CANCELED) || has_timeout ?
 			-1 : 0;
