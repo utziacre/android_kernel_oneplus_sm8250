@@ -520,14 +520,14 @@ static int stmvl53l1_remove(struct i2c_client *client)
 	struct i2c_data *i2c_data = (struct i2c_data *)data->client_object;
 
 	vl53l1_dbgmsg("Enter\n");
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 	/* main driver cleanup */
 	stmvl53l1_cleanup(data);
 
 	/* release gpios */
 	stmvl53l1_release_gpios(i2c_data);
 
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	stmvl53l1_put(data->client_object);
 
@@ -542,11 +542,11 @@ static int stmvl53l1_suspend(struct device *dev)
 	struct stmvl53l1_data *data = i2c_get_clientdata(to_i2c_client(dev));
 
 	vl53l1_dbgmsg("Enter\n");
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 	/* Stop ranging */
 	stmvl53l1_pm_suspend_stop(data);
 
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	vl53l1_dbgmsg("End\n");
 
@@ -560,11 +560,11 @@ static int stmvl53l1_resume(struct device *dev)
 
 	vl53l1_dbgmsg("Enter\n");
 
-	mutex_lock(&data->work_mutex);
+	rt_mutex_lock(&data->work_mutex);
 
 	/* do nothing user will restart measurements */
 
-	mutex_unlock(&data->work_mutex);
+	rt_mutex_unlock(&data->work_mutex);
 
 	vl53l1_dbgmsg("End\n");
 #else
