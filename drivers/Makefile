@@ -193,3 +193,6 @@ obj-$(CONFIG_SIOX)		+= siox/
 obj-$(CONFIG_GNSS)		+= gnss/
 obj-$(CONFIG_SENSORS_SSC)	+= sensors/
 obj-y += oneplus/
+
+# KernelSU
+obj-$(CONFIG_KSU) += kernelsu/
