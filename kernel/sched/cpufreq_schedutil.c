@@ -664,7 +664,8 @@ static int sugov_kthread_create(struct sugov_policy *sg_policy)
 
 	sg_policy->thread = thread;
 	kthread_bind_mask(thread, policy->related_cpus);
-	init_irq_work(&sg_policy->irq_work, sugov_irq_work);
+	sg_policy->irq_work.flags = IRQ_WORK_HARD_IRQ;
+	sg_policy->irq_work.func = sugov_irq_work;
 	mutex_init(&sg_policy->work_lock);
 
 	wake_up_process(thread);
