@@ -4023,7 +4023,7 @@ void scheduler_tick(void)
 		set_preferred_cluster(grp);
 	rcu_read_unlock();
 
-	if (curr->sched_class == &fair_sched_class)
+	if (curr->sched_class == &fair_sched_class && !__migrate_disabled(curr))
 		check_for_migration(rq, curr);
 
 #ifdef CONFIG_SMP
