@@ -3005,15 +3005,6 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags,
 unlock:
 	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
 out:
-        if (success && sched_predl) {
-                raw_spin_lock_irqsave(&cpu_rq(cpu)->lock, flags);
-                if (do_pl_notif(cpu_rq(cpu)))
-                        cpufreq_update_util(cpu_rq(cpu),
-                                                SCHED_CPUFREQ_WALT |
-                                                SCHED_CPUFREQ_PL);
-                raw_spin_unlock_irqrestore(&cpu_rq(cpu)->lock, flags);
-        }
-
 	if (success)
 		ttwu_stat(p, task_cpu(p), wake_flags);
 	preempt_enable();
