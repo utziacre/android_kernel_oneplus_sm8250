@@ -444,6 +444,11 @@ static int proc_fib_multipath_hash_policy(struct ctl_table *table, int write,
 }
 #endif
 
+static int sysctl_vals[] = { 0, 1, INT_MAX };
+#define SYSCTL_ZERO	((void *)&sysctl_vals[0])
+#define SYSCTL_ONE	((void *)&sysctl_vals[1])
+#define SYSCTL_INT_MAX	((void *)&sysctl_vals[2])
+
 static struct ctl_table ipv4_table[] = {
 	{
 		.procname	= "tcp_max_orphans",
