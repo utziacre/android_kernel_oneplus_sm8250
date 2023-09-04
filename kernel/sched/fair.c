@@ -8141,9 +8141,11 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 	int cpu = smp_processor_id();
 	int new_cpu;
 	int sync = (wake_flags & WF_SYNC) && !(current->flags & PF_EXITING);
-
 	int _wake_cap = wake_cap(p, cpu, prev_cpu);
 	int _cpus_allowed = cpumask_test_cpu(cpu, p->cpus_ptr);
+
+	if (sd_flag & SD_BALANCE_EXEC)
+		return prev_cpu;
 
 	if (sysctl_sched_sync_hint_enable && sync && _cpus_allowed &&
 	    !_wake_cap && cpu_rq(cpu)->nr_running == 1 &&
