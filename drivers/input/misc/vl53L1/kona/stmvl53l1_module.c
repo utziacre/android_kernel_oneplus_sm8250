@@ -2398,9 +2398,11 @@ static bool sleep_for_data_condition(struct stmvl53l1_data *data, pid_t pid,
 {
 	bool res;
 
+	set_current_state(TASK_RUNNING);
 	rt_mutex_lock(&data->work_mutex);
 	res = is_new_data_for_me(data, pid, head);
 	rt_mutex_unlock(&data->work_mutex);
+	set_current_state(TASK_INTERRUPTIBLE);
 
 	return res;
 }
