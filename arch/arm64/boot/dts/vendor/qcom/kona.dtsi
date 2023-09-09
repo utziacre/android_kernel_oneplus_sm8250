@@ -180,7 +180,7 @@
 			next-level-cache = <&L2_4>;
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			capacity-dmips-mhz = <1024>;
-			dynamic-power-coefficient = <341>;
+			dynamic-power-coefficient = <374>;
 			#cooling-cells = <2>;
 			L2_4: l2-cache {
 			      compatible = "arm,arch-cache";
@@ -206,7 +206,7 @@
 			next-level-cache = <&L2_5>;
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			capacity-dmips-mhz = <1024>;
-			dynamic-power-coefficient = <341>;
+			dynamic-power-coefficient = <374>;
 			L2_5: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -231,7 +231,7 @@
 			next-level-cache = <&L2_6>;
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			capacity-dmips-mhz = <1024>;
-			dynamic-power-coefficient = <341>;
+			dynamic-power-coefficient = <374>;
 			L2_6: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -256,7 +256,7 @@
 			next-level-cache = <&L2_7>;
 			qcom,freq-domain = <&cpufreq_hw 2 4>;
 			capacity-dmips-mhz = <1024>;
-			dynamic-power-coefficient = <422>;
+			dynamic-power-coefficient = <428>;
 			#cooling-cells = <2>;
 			L2_7: l2-cache {
 			      compatible = "arm,arch-cache";
