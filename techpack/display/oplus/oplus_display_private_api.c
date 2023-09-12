@@ -133,8 +133,13 @@ void lcdinfo_notify(unsigned long val, void *v)
 }
 /*#endif  OPLUS_BUG_STABILITY */
 
+static bool is_registered = false;
+
 int oplus_set_display_vendor(struct dsi_display *display)
 {
+	if(is_registered)
+		return 0;
+
 	if (!display || !display->panel ||
 	    !display->panel->oplus_priv.vendor_name ||
 	    !display->panel->oplus_priv.manufacture_name) {
@@ -143,6 +148,7 @@ int oplus_set_display_vendor(struct dsi_display *display)
 	}
 	register_device_proc("lcd", (char *)display->panel->oplus_priv.vendor_name,
 			     (char *)display->panel->oplus_priv.manufacture_name);
+	is_registered = true;
 
 	return 0;
 }
