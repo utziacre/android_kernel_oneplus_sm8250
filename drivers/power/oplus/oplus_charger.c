@@ -10759,6 +10759,7 @@ static void oplus_chg_print_log(struct oplus_chg_chip *chip)
 
 static void oplus_chg_print_bcc_log(struct oplus_chg_chip *chip)
 {
+#if 0
 	if (oplus_pps_get_pps_fastchg_started()) {
 		oplus_chg_get_battery_data(chip);
 		oplus_chg_get_charger_voltage();
@@ -10766,6 +10767,7 @@ static void oplus_chg_print_bcc_log(struct oplus_chg_chip *chip)
 	}
 	charger_xlog_printk(CHG_LOG_CRTI, "BCC[%d / %d / %d / %d / %d / %d / %d / %d]\n",
 		chip->soc, chip->ui_soc, chip->smooth_soc, chip->batt_volt, chip->icharging, chip->temperature, chip->charger_volt, chip->pps_force_svooc);
+#endif
 }
 
 int oplus_chg_bcc_monitor_common(void *data)
