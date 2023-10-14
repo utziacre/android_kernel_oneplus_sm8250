@@ -32,6 +32,10 @@ struct cass_cpu_cand {
 	unsigned long util;
 };
 
+unsigned int sched_util_threshold[CPU_NR] = {
+	531, 531, 531, 531, 357, 357, 357, 310
+};
+
 static __always_inline
 unsigned long cass_cpu_util(int cpu, bool sync)
 {
@@ -58,15 +62,24 @@ bool cass_cpu_better(const struct cass_cpu_cand *a,
 #define cass_cmp(a, b) ({ res = (a) - (b); })
 #define cass_eq(a, b) ({ res = (a) == (b); })
 	long res;
+	bool need_balance;
+
+	need_balance = (a->util >= sched_util_threshold[a->cpu] ||
+			     b->util >= sched_util_threshold[b->cpu]);
 
 	/* Prefer the CPU with lower relative utilization */
-	if (cass_cmp(b->util, a->util))
+	if (need_balance && cass_cmp(b->util, a->util))
 		goto done;
 
 	/* Prefer the current CPU for sync wakes */
 	if (sync && (cass_eq(a->cpu, smp_processor_id()) ||
 		     !cass_cmp(b->cpu, smp_processor_id())))
 		goto done;
+
+        /* Prefer the CPU with lower orig capacity */
+        if(!need_balance && cass_cmp(capacity_orig_of(b->cpu),
+				     capacity_orig_of(a->cpu)))
+                goto done;
 
 	/* Prefer the CPU with higher capacity */
 	if (cass_cmp(a->cap, b->cap))
