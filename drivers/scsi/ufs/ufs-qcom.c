@@ -1502,12 +1502,8 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 	hba->caps |= UFSHCD_CAP_AUTO_BKOPS_SUSPEND;
 
 	if (host->hw_ver.major >= 0x2) {
-		/* remove the power off/on during H8, avoid 7250 core hang issue
-		   add by yanghao@PSW.Kernel.Stability 2020-8-25 */
-		#ifndef OPLUS_BUG_STABILITY
 		if (!host->disable_lpm)
 			hba->caps |= UFSHCD_CAP_POWER_COLLAPSE_DURING_HIBERN8;
-		#endif
 		host->caps = UFS_QCOM_CAP_QUNIPRO |
 			     UFS_QCOM_CAP_RETAIN_SEC_CFG_AFTER_PWR_COLLAPSE;
 	}
@@ -2731,15 +2727,15 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba, bool no_sleep)
 		return;
 
 	/* sleep a bit intermittently as we are dumping too much data */
-	usleep_range(1000, 1100);
+	udelay(1000);
 	ufs_qcom_testbus_read(hba);
-	usleep_range(1000, 1100);
+	udelay(1000);
 	ufs_qcom_print_unipro_testbus(hba);
-	usleep_range(1000, 1100);
+	udelay(1000);
 	ufs_qcom_print_utp_hci_testbus(hba);
-	usleep_range(1000, 1100);
+	udelay(1000);
 	ufs_qcom_phy_dbg_register_dump(phy);
-	usleep_range(1000, 1100);
+	udelay(1000);
 }
 
 static u32 ufs_qcom_get_user_cap_mode(struct ufs_hba *hba)
