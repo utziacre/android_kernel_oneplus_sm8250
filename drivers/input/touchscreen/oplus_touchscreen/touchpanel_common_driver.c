@@ -25,10 +25,6 @@
 #define GESTURE_MODE 1
 #define SLEEP_MODE   2
 
-#ifdef CONFIG_TOUCHIRQ_UPDATE_QOS
-#include <linux/pm_qos.h>
-#endif
-
 #ifndef TPD_USE_EINT
 #include <linux/hrtimer.h>
 #endif
@@ -79,13 +75,6 @@ unsigned int tp_debug = 0;
 unsigned int tp_register_times = 0;
 struct touchpanel_data *g_tp = NULL;
 static DECLARE_WAIT_QUEUE_HEAD(waiter);
-
-#ifdef CONFIG_TOUCHIRQ_UPDATE_QOS
-static struct pm_qos_request pm_qos_req;
-static int pm_qos_value = PM_QOS_DEFAULT_VALUE;
-static int pm_qos_state = 0;
-#define PM_QOS_TOUCH_WAKEUP_VALUE 400
-#endif
 
 static int sigle_num = 0;
 static struct timeval tpstart, tpend;
@@ -1544,13 +1533,6 @@ static irqreturn_t tp_irq_thread_fn(int irq, void *dev_id)
 		}
 	}
 
-#ifdef CONFIG_TOUCHIRQ_UPDATE_QOS
-	if (pm_qos_state && !ts->is_suspended && !ts->touch_count) {
-		pm_qos_value = PM_QOS_TOUCH_WAKEUP_VALUE;
-		pm_qos_update_request(&pm_qos_req, pm_qos_value);
-	}
-#endif
-
 	if (ts->sec_long_low_trigger) {
 		disable_irq_nosync(ts->irq);
 	}
@@ -1573,12 +1555,6 @@ static irqreturn_t tp_irq_thread_fn(int irq, void *dev_id)
 		enable_irq(ts->irq);
 	}
 
-#ifdef CONFIG_TOUCHIRQ_UPDATE_QOS
-	if (PM_QOS_TOUCH_WAKEUP_VALUE == pm_qos_value) {
-		pm_qos_value = PM_QOS_DEFAULT_VALUE;
-		pm_qos_update_request(&pm_qos_req, pm_qos_value);
-	}
-#endif
 	if (ts->ws) {
 		__pm_relax(ts->ws);
 	}
@@ -3028,14 +3004,6 @@ static ssize_t proc_fw_update_write(struct file *file, const char __user *page, 
 	if (ret < 0) {
 		TPD_INFO("kill signal interrupt\n");
 	}
-
-#ifdef CONFIG_TOUCHIRQ_UPDATE_QOS
-	if (!pm_qos_state) {
-		pm_qos_add_request(&pm_qos_req, PM_QOS_CPU_DMA_LATENCY, pm_qos_value);
-		TPD_INFO("add qos request in touch driver.\n");
-		pm_qos_state = 1;
-	}
-#endif
 
 	TPD_INFO("fw update finished\n");
 	return size;
