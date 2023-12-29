@@ -636,8 +636,7 @@ static int cpu_power_select(struct cpuidle_device *dev,
 {
 	ktime_t delta_next;
 	int best_level = 0;
-	uint32_t latency_us = pm_qos_request_for_cpu(PM_QOS_CPU_DMA_LATENCY,
-							dev->cpu);
+	uint32_t latency_us = cpuidle_governor_latency_req(dev->cpu);
 	s64 sleep_us = ktime_to_us(tick_nohz_get_sleep_length(&delta_next));
 	uint32_t modified_time_us = 0;
 	uint32_t next_event_us = 0;
