@@ -1875,11 +1875,14 @@ static ssize_t cpuset_write_resmask_wrapper(struct kernfs_open_file *of,
 	};
 #ifdef CONFIG_UCLAMP_ASSIST
 	static struct uc_target uc_targets[] = {
-		{ "top-app",		"20", "max",	1, 1 },
-		{ "foreground",		"20", "50",	0, 0 },
-		{ "restricted",		"10", "40",	0, 0 },
-		{ "background",		"20", "max",	0, 0 },
-		{ "system-background",	"10", "50",	0, 0 },
+		{ "top-app",		 "1", "max",	1, 1 },
+                { "display",             "1", "max",    1, 1 },
+		{ "foreground",		 "0", "max",	0, 0 },
+                { "camera-daemon",       "0", "max",    0, 0 },
+                { "audio-app",           "0",  "50",    1, 0 },
+		{ "background",		 "0",  "50",	0, 0 },
+		{ "system-background",	 "0",  "50",	0, 0 },
+                { "restricted",          "0",  "40",    0, 0 },
 	};
 #endif
 	struct cpuset *cs = css_cs(of_css(of));
