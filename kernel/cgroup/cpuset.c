@@ -151,7 +151,6 @@ struct uc_target {
 	char *uclamp_min;
 	char *uclamp_max;
 	u64 uclamp_latency_sensitive;
-	u64 uclamp_boosted;
 };
 #endif
 
@@ -1646,49 +1645,6 @@ int cpu_uclamp_ls_write_u64(struct cgroup_subsys_state *css,
 u64 cpu_uclamp_ls_read_u64(struct cgroup_subsys_state *css,
 				  struct cftype *cft);
 
-int cpu_uclamp_boost_write_u64(struct cgroup_subsys_state *css,
-				   struct cftype *cftype, u64 boost);
-u64 cpu_uclamp_boost_read_u64(struct cgroup_subsys_state *css,
-				  struct cftype *cft);
-
-#if !defined(CONFIG_SCHED_TUNE)
-static u64 st_boost_read(struct cgroup_subsys_state *css,
-			     struct cftype *cft)
-{
-	if (!strlen(css->cgroup->kn->name))
-		return -EINVAL;
-
-	return cpu_uclamp_boost_read_u64(css, cft);
-}
-
-static int st_boost_write(struct cgroup_subsys_state *css,
-		             struct cftype *cft, u64 boost)
-{
-	if (!strlen(css->cgroup->kn->name))
-		return -EINVAL;
-
-	return cpu_uclamp_boost_write_u64(css, cft, boost);
-}
-
-static u64 st_prefer_idle_read(struct cgroup_subsys_state *css,
-			     struct cftype *cft)
-{
-	if (!strlen(css->cgroup->kn->name))
-		return -EINVAL;
-
-	return cpu_uclamp_ls_read_u64(css, cft);
-}
-
-static int st_prefer_idle_write(struct cgroup_subsys_state *css,
-			     struct cftype *cft, u64 prefer_idle)
-{
-	if (!strlen(css->cgroup->kn->name))
-		return -EINVAL;
-
-	return cpu_uclamp_ls_write_u64(css, cft, prefer_idle);
-}
-#endif
-
 #endif
 
 /* The various types of files and directories in a cpuset file system */
@@ -1875,11 +1831,11 @@ static ssize_t cpuset_write_resmask_wrapper(struct kernfs_open_file *of,
 	};
 #ifdef CONFIG_UCLAMP_ASSIST
 	static struct uc_target uc_targets[] = {
-		{ "top-app",		"20", "max",	1, 1 },
-		{ "foreground",		"20", "50",	0, 0 },
-		{ "restricted",		"10", "40",	0, 0 },
-		{ "background",		"20", "max",	0, 0 },
-		{ "system-background",	"10", "50",	0, 0 },
+		{ "top-app",		 "1", "max",	1},
+		{ "foreground",		 "0", "max",	0},
+		{ "restricted",		 "0",  "40",	0},
+		{ "background",		 "0",  "50",	0},
+		{ "system-background",	 "0",  "50",	0},
 	};
 #endif
 	struct cpuset *cs = css_cs(of_css(of));
@@ -1905,8 +1861,6 @@ static ssize_t cpuset_write_resmask_wrapper(struct kernfs_open_file *of,
 							of, strcpy(&_uclamp_value, uc_tgt.uclamp_max), nbytes, off);
 						cpu_uclamp_ls_write_u64(
 							&cs->css, NULL, uc_tgt.uclamp_latency_sensitive);
-						cpu_uclamp_boost_write_u64(
-							&cs->css, NULL, uc_tgt.uclamp_boosted);
 						break;
 					}
 				}
@@ -2004,23 +1958,6 @@ static s64 cpuset_read_s64(struct cgroup_subsys_state *css, struct cftype *cft)
 	/* Unrechable but makes gcc happy */
 	return 0;
 }
-
-#ifdef CONFIG_UCLAMP_TASK_GROUP
-int cpu_uclamp_min_show(struct seq_file *sf, void *v);
-int cpu_uclamp_max_show(struct seq_file *sf, void *v);
-
-ssize_t cpu_uclamp_min_write(struct kernfs_open_file *of,
-				    char *buf, size_t nbytes,
-				    loff_t off);
-ssize_t cpu_uclamp_max_write(struct kernfs_open_file *of,
-				    char *buf, size_t nbytes,
-				    loff_t off);
-
-int cpu_uclamp_ls_write_u64(struct cgroup_subsys_state *css,
-				   struct cftype *cftype, u64 ls);
-u64 cpu_uclamp_ls_read_u64(struct cgroup_subsys_state *css,
-				  struct cftype *cft);
-#endif
 
 /*
  * for the common functions, 'private' gives the type of file
