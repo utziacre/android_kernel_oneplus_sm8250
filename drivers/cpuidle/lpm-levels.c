@@ -671,7 +671,7 @@ static int cpu_power_select(struct cpuidle_device *dev,
 			if (next_wakeup_us > max_residency) {
 				predicted = (lpm_cpuidle_predict(dev, cpu,
 					&idx_restrict, &idx_restrict_time,
-					&ipi_predicted) == 1) ? 0 : (max_residency >> 1);
+					&ipi_predicted) == 1) ? 0 : (max_residency >> 2);
 				if (predicted && (predicted < min_residency))
 					predicted = min_residency;
 			} else
