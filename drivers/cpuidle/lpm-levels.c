@@ -632,7 +632,7 @@ static void calculate_next_wakeup(uint32_t *next_wakeup_us,
 }
 
 static int cpu_power_select(struct cpuidle_device *dev,
-		struct lpm_cpu *cpu)
+		struct lpm_cpu *cpu, bool *stop_tick)
 {
 	ktime_t delta_next;
 	int best_level = 0;
@@ -732,6 +732,9 @@ done_select:
 
 	trace_cpu_pred_select(idx_restrict_time ? 2 : (ipi_predicted ?
 				3 : (predicted ? 1 : 0)), predicted, htime);
+
+	if(sleep_us <= TICK_USEC)
+		*stop_tick = false;
 
 	return best_level;
 }
@@ -1358,7 +1361,7 @@ static int lpm_cpuidle_select(struct cpuidle_driver *drv,
 	if (!cpu)
 		return 0;
 
-	return cpu_power_select(dev, cpu);
+	return cpu_power_select(dev, cpu, stop_tick);
 }
 
 static void update_ipi_history(int cpu)
