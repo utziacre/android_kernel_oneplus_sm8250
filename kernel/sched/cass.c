@@ -55,6 +55,7 @@ bool cass_cpu_better(const struct cass_cpu_cand *a,
 #define cass_eq(a, b) ({ res = (a) == (b); })
 	long res;
 	bool boost = uclamp_boosted(p);
+	bool latency_sensitive = uclamp_latency_sensitive(p);
 
 	/* Prefer the CPU with higher cap and lower utilization */
 	if (boost && cass_cmp_r(a->cap - a->raw_util, b->cap - b->raw_util, 64))
@@ -66,7 +67,7 @@ bool cass_cpu_better(const struct cass_cpu_cand *a,
 		goto done;
 
 	/* Prefer the CPU with lower idle exit latency */
-	if (cass_cmp_r(b->exit_lat, a->exit_lat, 1))
+	if (cass_cmp_r(b->exit_lat, a->exit_lat, 1 + !latency_sensitive * 99))
 		goto done;
 
 	/* Prefer lower energy consumption CPU */
