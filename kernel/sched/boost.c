@@ -89,7 +89,7 @@ static void sched_conservative_boost_enter(void)
 {
 	update_cgroup_boost_settings();
 #ifdef CONFIG_DYNAMIC_STUNE_BOOST
-	do_stune_boost(get_sched_boost() / 2, &boost_slot[1]);
+	do_stune_boost(get_sched_boost(), &boost_slot[1]);
 #endif
 }
 
