@@ -837,9 +837,9 @@ static int m1120_set_detection_mode_1(u8 mode)
 
 			/* request irq */
 			TRI_KEY_LOG("m1120 down enter irq handler\n");
-			if (request_irq(p_m1120_data->irq, &m1120_up_irq_handler,
-				IRQ_TYPE_LEVEL_LOW, "hall_m1120_up",
-					(void *)p_m1120_data->client)) {
+			if (request_threaded_irq(p_m1120_data->irq, NULL, 
+				&m1120_up_irq_handler, IRQ_TYPE_LEVEL_LOW,
+				"hall_m1120_up", (void *)p_m1120_data->client)) {
 				TRI_KEY_ERR("IRQ LINE NOT AVAILABLE!!\n");
 				return -EINVAL;
 			}
